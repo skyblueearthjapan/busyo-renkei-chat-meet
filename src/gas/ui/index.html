@@ -60,21 +60,33 @@
     </button>
   </nav>
 
-  <!-- Meet作成後のモーダル -->
+  <!-- Meet作成後のモーダル（Sprint 2: 通知結果表示） -->
   <div id="meet-modal" class="modal hidden">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Meetを開始しました</h3>
+        <h3>📹 Meetを開きました</h3>
       </div>
       <div class="modal-body">
-        <p class="meet-info">
-          <span id="meet-dept-name" class="meet-dept-name"></span> への連絡を開始しました。
+        <p class="meet-info" style="font-size:1.1rem; margin-bottom:8px;">
+          <span id="meet-dept-name" class="meet-dept-name"></span> への連絡
         </p>
-        <p class="meet-notice">新しいタブでMeetが開きます。</p>
+        <p id="meet-notify-status" class="meet-notice" style="font-size:0.875rem; color:#6B7280;"></p>
+        <p style="font-size:0.75rem; color:#9CA3AF; margin-top:12px;">
+          イベントID: <span id="meet-event-id"></span>
+        </p>
       </div>
-      <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="Home.closeMeetModal()">閉じる</button>
-        <button class="btn btn-primary" onclick="Home.openMemoFromMeet()">メモを書く</button>
+      <div class="modal-actions" style="flex-direction:column; gap:8px;">
+        <button class="btn btn-primary btn-large" onclick="Home.openMemoFromMeet()">
+          📝 メモを書く
+        </button>
+        <div style="display:flex; gap:8px; width:100%;">
+          <button class="btn btn-secondary" style="flex:1;" onclick="Home.copyMeetLink()">
+            🔗 リンクをコピー
+          </button>
+          <button class="btn btn-secondary" style="flex:1;" onclick="Home.closeMeetModal()">
+            閉じる
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -206,7 +218,8 @@
 
       container.innerHTML = filteredDepts.map(function(dept) {
         var chatDisabled = !dept.chat_url && !dept.chat_space_id;
-        var meetDisabled = !dept.meet_url && !dept.notify_space_id;
+        // Sprint 2: Meetは notify_space_id がなくても使用可能（通知がスキップされるだけ）
+        var meetDisabled = dept.enabled === 'N';
 
         return '<div class="dept-card" data-dept-id="' + App.escapeHtml(dept.dept_id) + '">' +
           '<div class="dept-info">' +
@@ -253,10 +266,10 @@
     }
 
     /**
-     * Meetボタン処理
+     * Meetボタン処理（Sprint 2: createMeetAndNotify対応）
      */
     function handleMeet(deptId) {
-      App.showLoading('Meetを作成しています...');
+      App.showLoading('接続しています...');
 
       google.script.run
         .withSuccessHandler(function(result) {
@@ -269,17 +282,41 @@
             if (deptNameEl) {
               deptNameEl.textContent = result.deptName;
             }
+
+            // 通知結果を表示
+            var notifyStatusEl = document.getElementById('meet-notify-status');
+            if (notifyStatusEl) {
+              if (result.notifyResult && result.notifyResult.ok) {
+                notifyStatusEl.textContent = '✅ 相手部署に通知しました';
+                notifyStatusEl.style.color = '#059669';
+              } else {
+                notifyStatusEl.textContent = '📢 相手部署への通知はスキップされました（Chatで連絡してください）';
+                notifyStatusEl.style.color = '#D97706';
+              }
+            }
+
+            // イベントID表示
+            var eventIdEl = document.getElementById('meet-event-id');
+            if (eventIdEl) {
+              eventIdEl.textContent = result.eventId || '';
+            }
+
             document.getElementById('meet-modal').classList.remove('hidden');
 
             // 新しいタブでMeetを開く
-            window.open(result.meetUrl, '_blank');
+            var meetUrl = result.meetingUri || result.meetUrl;
+            if (meetUrl) {
+              window.open(meetUrl, '_blank');
+            }
+
+            App.showToast('Meetを開始しました。メモも残せます。', 'success');
           } else {
-            App.showToast(result.error || 'Meetを作成できませんでした', 'error');
+            App.showToast(result.error || 'うまく接続できませんでした。もう一度お試しください。', 'error');
           }
         })
         .withFailureHandler(function(error) {
           App.hideLoading();
-          App.showToast('エラーが発生しました', 'error');
+          App.showToast('うまく接続できませんでした。もう一度お試しください。', 'error');
           console.error(error);
         })
         .createMeet(deptId, '');
@@ -298,12 +335,63 @@
      */
     function openMemoFromMeet() {
       if (currentMeetData) {
-        App.navigateTo('memo', {
-          event_id: currentMeetData.eventId,
-          to: currentMeetData.deptId || ''
-        });
+        // memoUrlがあればそれを使用、なければnavigateToで遷移
+        if (currentMeetData.memoUrl) {
+          window.location.href = currentMeetData.memoUrl;
+        } else {
+          App.navigateTo('memo', {
+            event_id: currentMeetData.eventId,
+            to: currentMeetData.deptId || ''
+          });
+        }
       }
       closeMeetModal();
+    }
+
+    /**
+     * MeetリンクをクリップボードにコピーSprint 2)
+     */
+    function copyMeetLink() {
+      if (!currentMeetData) return;
+
+      var meetUrl = currentMeetData.meetingUri || currentMeetData.meetUrl;
+      if (!meetUrl) {
+        App.showToast('リンクがありません', 'error');
+        return;
+      }
+
+      // クリップボードにコピー
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(meetUrl).then(function() {
+          App.showToast('リンクをコピーしました', 'success');
+        }).catch(function() {
+          fallbackCopyTextToClipboard(meetUrl);
+        });
+      } else {
+        fallbackCopyTextToClipboard(meetUrl);
+      }
+    }
+
+    /**
+     * フォールバック: テキストをクリップボードにコピー
+     */
+    function fallbackCopyTextToClipboard(text) {
+      var textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      try {
+        document.execCommand('copy');
+        App.showToast('リンクをコピーしました', 'success');
+      } catch (err) {
+        App.showToast('コピーに失敗しました', 'error');
+      }
+
+      document.body.removeChild(textArea);
     }
 
     return {
@@ -311,7 +399,8 @@
       handleChat: handleChat,
       handleMeet: handleMeet,
       closeMeetModal: closeMeetModal,
-      openMemoFromMeet: openMemoFromMeet
+      openMemoFromMeet: openMemoFromMeet,
+      copyMeetLink: copyMeetLink
     };
   })();
 

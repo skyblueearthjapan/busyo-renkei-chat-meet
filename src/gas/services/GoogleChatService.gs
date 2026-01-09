@@ -94,24 +94,21 @@ var GoogleChatService = (function() {
   }
 
   /**
-   * Meet通知カードを構築
+   * Meet通知カードを構築（Sprint 2: 電話っぽいデザイン）
    * @param {Object} data - 通知データ
    * @returns {Object} Card V2形式のカードオブジェクト
    */
   function buildMeetNotificationCard(data) {
-    var headerText = data.fromDeptName ?
-      data.fromDeptName + ' の ' + data.senderName + ' さんから連絡です' :
-      data.senderName + ' さんから連絡です';
-
-    var webAppUrl = ScriptApp.getService().getUrl();
-    var memoUrl = webAppUrl + '?page=memo&event_id=' + (data.eventId || '');
+    var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
+    var fromText = data.fromDeptName || '（未設定）';
+    var toText = data.toDeptName || '（未設定）';
 
     return {
-      cardId: 'meet-notification-' + Date.now(),
+      cardId: 'incoming_call_' + Date.now(),
       card: {
         header: {
-          title: '連絡があります',
-          subtitle: headerText,
+          title: data.title || '📣 連絡があります',
+          subtitle: fromText + ' → ' + toText + ' / ' + now,
           imageUrl: 'https://fonts.gstatic.com/s/i/googlematerialicons/videocam/v6/24px.svg',
           imageType: 'CIRCLE'
         },
@@ -120,8 +117,8 @@ var GoogleChatService = (function() {
             widgets: [
               {
                 decoratedText: {
-                  topLabel: '発信者',
-                  text: data.senderName + (data.fromDeptName ? ' (' + data.fromDeptName + ')' : ''),
+                  text: '発信者: <b>' + escapeHtml(data.callerName || data.senderName || '') + '</b>',
+                  bottomLabel: escapeHtml(data.callerEmail || ''),
                   startIcon: {
                     knownIcon: 'PERSON'
                   }
@@ -129,10 +126,9 @@ var GoogleChatService = (function() {
               },
               {
                 decoratedText: {
-                  topLabel: '宛先',
-                  text: data.toDeptName || '未指定',
+                  text: '関連ID: <b>' + escapeHtml(data.eventId || '') + '</b>',
                   startIcon: {
-                    knownIcon: 'MEMBERSHIP'
+                    knownIcon: 'BOOKMARK'
                   }
                 }
               }
@@ -158,10 +154,10 @@ var GoogleChatService = (function() {
                       }
                     },
                     {
-                      text: 'メモを開く',
+                      text: 'メモを見る/書く',
                       onClick: {
                         openLink: {
-                          url: memoUrl
+                          url: data.memoUrl
                         }
                       },
                       color: {
@@ -178,6 +174,82 @@ var GoogleChatService = (function() {
           }
         ]
       }
+    };
+  }
+
+  /**
+   * HTMLエスケープ
+   * @param {string} s - 文字列
+   * @returns {string} エスケープ済み
+   */
+  function escapeHtml(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  /**
+   * スペースにメッセージを投稿（cardsV2）
+   * @param {string} spaceId - スペースID
+   * @param {Object} messagePayload - メッセージペイロード
+   * @returns {Object} { ok, messageId, error }
+   */
+  function postToSpace(spaceId, messagePayload) {
+    try {
+      var formattedSpaceId = formatSpaceId(spaceId);
+      var url = 'https://chat.googleapis.com/v1/' + formattedSpaceId + '/messages';
+
+      var options = {
+        method: 'post',
+        contentType: 'application/json',
+        headers: {
+          'Authorization': 'Bearer ' + ScriptApp.getOAuthToken()
+        },
+        payload: JSON.stringify(messagePayload),
+        muteHttpExceptions: true
+      };
+
+      var response = UrlFetchApp.fetch(url, options);
+      var responseCode = response.getResponseCode();
+      var body = response.getContentText();
+
+      if (responseCode >= 200 && responseCode < 300) {
+        var data = JSON.parse(body);
+        return { ok: true, messageId: data.name || '' };
+      } else {
+        console.error('Chat API エラー:', responseCode, body);
+        return { ok: false, error: 'Chat API error: ' + responseCode };
+      }
+    } catch (err) {
+      console.error('postToSpace エラー:', err);
+      return { ok: false, error: err.message };
+    }
+  }
+
+  /**
+   * 着信通知カードを構築（buildIncomingCallCard）
+   * @param {Object} ctx - コンテキスト
+   * @returns {Object} メッセージペイロード
+   */
+  function buildIncomingCallCard(ctx) {
+    var card = buildMeetNotificationCard({
+      title: ctx.title || '📣 連絡があります',
+      fromDeptName: ctx.fromDeptName,
+      toDeptName: ctx.toDeptName,
+      callerName: ctx.callerName,
+      callerEmail: ctx.callerEmail,
+      senderName: ctx.callerName,
+      meetingUri: ctx.meetingUri,
+      memoUrl: ctx.memoUrl,
+      eventId: ctx.eventId
+    });
+
+    return {
+      text: '',
+      cardsV2: [card]
     };
   }
 
@@ -213,6 +285,8 @@ var GoogleChatService = (function() {
   return {
     postTextMessage: postTextMessage,
     postMeetNotification: postMeetNotification,
-    postContactStartNotification: postContactStartNotification
+    postContactStartNotification: postContactStartNotification,
+    postToSpace: postToSpace,
+    buildIncomingCallCard: buildIncomingCallCard
   };
 })();
