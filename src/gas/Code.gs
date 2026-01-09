@@ -1,8 +1,13 @@
 /**
  * 部署クイック連絡ポータル - メインエントリポイント
  *
- * GAS Webアプリのエントリポイントとサーバー関数を定義
+ * doGet: ルーティング + bootstrap埋め込み
+ * 公開サーバー関数: getBootstrap, listDepts, logEvent, createMemo, listMemos, getMemoDetail
  */
+
+// ============================================
+// doGet - エントリポイント
+// ============================================
 
 /**
  * Webアプリのエントリポイント
@@ -10,34 +15,36 @@
  * @returns {HtmlOutput} HTMLページ
  */
 function doGet(e) {
-  const page = e.parameter.page || 'home';
-  const params = e.parameter;
+  var page = e.parameter.page || 'home';
+  var params = e.parameter;
 
-  // ページアクセスログを記録
-  try {
-    const user = AuthService.getCurrentUser();
-    const actionMap = {
-      'home': 'OpenHome',
-      'memo': 'OpenMemo',
-      'history': 'OpenHistory',
-      'detail': 'OpenDetail'
-    };
-    if (actionMap[page]) {
-      SheetService.appendEventLog({
-        action: actionMap[page],
-        userEmail: user.email,
-        userName: user.name,
-        memo: `page=${page}`
-      });
-    }
-  } catch (err) {
-    console.error('ログ記録エラー:', err);
+  // ページに応じたHTMLを返す
+  var htmlFile;
+  switch (page) {
+    case 'memo':
+      htmlFile = 'ui/memo';
+      break;
+    case 'history':
+      htmlFile = 'ui/history';
+      break;
+    case 'detail':
+      htmlFile = 'ui/detail';
+      break;
+    case 'home':
+    default:
+      htmlFile = 'ui/index';
+      page = 'home';
+      break;
   }
 
   // HTMLテンプレートを生成
-  const template = HtmlService.createTemplateFromFile('ui/index');
-  template.initialPage = page;
+  var template = HtmlService.createTemplateFromFile(htmlFile);
+
+  // bootstrapデータを埋め込み（初回ロードを速く）
+  var bootstrap = getBootstrapData();
+  template.bootstrapJson = JSON.stringify(bootstrap);
   template.initialParams = JSON.stringify(params);
+  template.currentPage = page;
 
   return template.evaluate()
     .setTitle('部署クイック連絡')
@@ -55,29 +62,51 @@ function include(filename) {
 }
 
 // ============================================
-// クライアントから呼ばれるサーバー関数
+// Bootstrap データ取得
 // ============================================
 
 /**
- * 初期データを取得（部署一覧、Lookup、ユーザー情報）
- * @returns {Object} 初期データ
+ * 初期表示に必要なデータを取得（内部用）
+ * @returns {Object} bootstrap データ
+ */
+function getBootstrapData() {
+  try {
+    var user = LogService.getCurrentUserInfo();
+    var depts = SheetService.getDeptList();
+    var lookup = LookupService.getLookup();
+
+    return {
+      user: user,
+      depts: depts,
+      lookup: lookup
+    };
+  } catch (e) {
+    console.error('getBootstrapData エラー:', e);
+    return {
+      user: { email: '', name: 'Unknown' },
+      depts: [],
+      lookup: LookupService.getLookup() // デフォルト値が返る
+    };
+  }
+}
+
+// ============================================
+// 公開サーバー関数（google.script.run で呼ぶ）
+// ============================================
+
+/**
+ * 初期データを取得
+ * @returns {Object} { user, depts, lookup }
  */
 function getBootstrap() {
   try {
-    const user = AuthService.getCurrentUser();
-    const deptList = SheetService.getDeptList();
-    const lookup = SheetService.getLookup();
-
     return {
       success: true,
-      data: {
-        user: user,
-        deptList: deptList,
-        lookup: lookup
-      }
+      data: getBootstrapData()
     };
-  } catch (err) {
-    console.error('getBootstrap エラー:', err);
+  } catch (e) {
+    console.error('getBootstrap エラー:', e);
+    LogService.logError(e.message, { action: 'getBootstrap' });
     return {
       success: false,
       error: 'データの取得に失敗しました。'
@@ -86,231 +115,142 @@ function getBootstrap() {
 }
 
 /**
- * Chatを開く（ログ記録 + URL返却）
- * @param {string} deptId - 宛先部署ID
- * @param {string} fromDeptId - 発信部署ID（任意）
- * @returns {Object} 結果
+ * 部署一覧を取得
+ * @param {Object} filters - フィルタ条件 {q?, site?}
+ * @returns {Object} { success, data, error }
  */
-function openChat(deptId, fromDeptId) {
+function listDepts(filters) {
   try {
-    const user = AuthService.getCurrentUser();
-    const dept = SheetService.getDeptById(deptId);
-
-    if (!dept) {
-      return { success: false, error: '部署が見つかりません。' };
-    }
-
-    if (!dept.chatUrl && !dept.chatSpaceId) {
-      return { success: false, error: 'この部署のChatはまだ設定されていません。' };
-    }
-
-    // イベントログ記録
-    const eventId = SheetService.appendEventLog({
-      action: 'OpenChat',
-      userEmail: user.email,
-      userName: user.name,
-      fromDeptId: fromDeptId || '',
-      toDeptId: deptId,
-      channel: 'Chat',
-      chatSpaceId: dept.chatSpaceId || ''
-    });
-
-    // Chat URLを決定
-    const chatUrl = dept.chatUrl ||
-      (dept.chatSpaceId ? `https://chat.google.com/room/${dept.chatSpaceId.replace('spaces/', '')}` : '');
-
+    var depts = SheetService.getDeptList(filters || {});
     return {
       success: true,
-      data: {
-        eventId: eventId,
-        chatUrl: chatUrl,
-        deptName: dept.name
-      }
+      data: depts
     };
-  } catch (err) {
-    console.error('openChat エラー:', err);
-    SheetService.appendEventLog({
-      action: 'Error',
-      userEmail: Session.getActiveUser().getEmail(),
-      memo: `openChat: ${err.message}`
-    });
-    return { success: false, error: 'Chatを開けませんでした。' };
+  } catch (e) {
+    console.error('listDepts エラー:', e);
+    LogService.logError(e.message, { action: 'listDepts' });
+    return {
+      success: false,
+      error: '部署一覧の取得に失敗しました。'
+    };
   }
 }
 
 /**
- * Meet会議を作成し、Chatに通知を送る
- * @param {string} deptId - 宛先部署ID
- * @param {string} fromDeptId - 発信部署ID（任意）
- * @returns {Object} 結果
+ * イベントをログに記録
+ * @param {Object} payload - ログデータ
+ * @returns {Object} { success, eventId, error }
  */
-function createMeet(deptId, fromDeptId) {
+function logEvent(payload) {
   try {
-    const user = AuthService.getCurrentUser();
-    const dept = SheetService.getDeptById(deptId);
-
-    if (!dept) {
-      return { success: false, error: '部署が見つかりません。' };
-    }
-
-    // 常設Meet URLがあればそれを使用
-    let meetingUri = dept.permanentMeetUrl;
-    let meetingCode = '';
-
-    if (!meetingUri) {
-      // Meet APIで新規作成
-      const meetResult = GoogleMeetService.createMeetingSpace();
-      if (!meetResult.success) {
-        return { success: false, error: meetResult.error };
-      }
-      meetingUri = meetResult.meetingUri;
-      meetingCode = meetResult.meetingCode;
-    }
-
-    // イベントログ記録（CreateMeet）
-    const eventId = SheetService.appendEventLog({
-      action: 'CreateMeet',
-      userEmail: user.email,
-      userName: user.name,
-      fromDeptId: fromDeptId || '',
-      toDeptId: deptId,
-      channel: 'Meet',
-      meetingCode: meetingCode,
-      meetingUri: meetingUri
-    });
-
-    // Chat通知送信
-    const notifySpaceId = dept.notifySpaceId || dept.chatSpaceId;
-    if (notifySpaceId) {
-      const fromDept = fromDeptId ? SheetService.getDeptById(fromDeptId) : null;
-      const fromDeptName = fromDept ? fromDept.name : '';
-
-      GoogleChatService.postMeetNotification(notifySpaceId, {
-        senderName: user.name,
-        senderEmail: user.email,
-        fromDeptName: fromDeptName,
-        toDeptName: dept.name,
-        meetingUri: meetingUri,
-        eventId: eventId
-      });
-
-      // NotifyChat ログ
-      SheetService.appendEventLog({
-        action: 'NotifyChat',
-        userEmail: user.email,
-        userName: user.name,
-        fromDeptId: fromDeptId || '',
-        toDeptId: deptId,
-        channel: 'Chat',
-        chatSpaceId: notifySpaceId,
-        memo: `Meet通知送信: ${meetingUri}`
-      });
-    }
-
-    // メモ画面URL生成
-    const webAppUrl = ScriptApp.getService().getUrl();
-    const memoUrl = `${webAppUrl}?page=memo&event_id=${eventId}&to_dept=${deptId}&from_dept=${fromDeptId || ''}`;
-
+    var result = LogService.logEvent(payload);
     return {
       success: true,
-      data: {
-        eventId: eventId,
-        meetingUri: meetingUri,
-        memoUrl: memoUrl,
-        deptName: dept.name
-      }
+      eventId: result.eventId
     };
-  } catch (err) {
-    console.error('createMeet エラー:', err);
-    SheetService.appendEventLog({
-      action: 'Error',
-      userEmail: Session.getActiveUser().getEmail(),
-      memo: `createMeet: ${err.message}`
-    });
-    return { success: false, error: 'Meetを作成できませんでした。' };
+  } catch (e) {
+    console.error('logEvent エラー:', e);
+    return {
+      success: false,
+      error: 'ログの記録に失敗しました。'
+    };
   }
 }
 
 /**
- * メモを保存
- * @param {Object} memoData - メモデータ
- * @returns {Object} 結果
+ * メモを作成
+ * @param {Object} memoPayload - メモデータ
+ * @returns {Object} { success, memoId, error }
  */
-function saveMemo(memoData) {
+function createMemo(memoPayload) {
   try {
-    const user = AuthService.getCurrentUser();
+    // バリデーション
+    var validation = Validation.validateMemo(memoPayload);
+    if (!validation.valid) {
+      return {
+        success: false,
+        error: Validation.formatErrorMessage(validation.errors),
+        validationErrors: validation.errors
+      };
+    }
 
-    // メモデータにユーザー情報を追加
-    memoData.creatorEmail = user.email;
-    memoData.creatorName = user.name;
-    memoData.createdAt = new Date();
+    // ユーザー情報を追加
+    var user = LogService.getCurrentUserInfo();
+    memoPayload.creator_email = user.email;
+    memoPayload.creator_name = user.name;
 
-    const memoId = SheetService.createMemo(memoData);
+    // メモを保存
+    var memoId = SheetService.createMemo(memoPayload);
 
-    // イベントログ記録
-    SheetService.appendEventLog({
-      action: 'SaveMemo',
-      userEmail: user.email,
-      userName: user.name,
-      fromDeptId: memoData.fromDeptId || '',
-      toDeptId: memoData.toDeptId || '',
-      relatedMemoId: memoId,
-      memo: `メモ保存: ${memoData.summary || ''}`
-    });
+    // SaveMemoログを記録
+    LogService.logSaveMemo(memoId, memoPayload.from_dept_id, memoPayload.to_dept_id);
 
-    // 関連イベントのステータス更新（任意）
-    if (memoData.relatedEventId) {
-      SheetService.updateEventMemoLink(memoData.relatedEventId, memoId);
+    // 関連イベントがあればリンク
+    if (memoPayload.related_event_id) {
+      LogService.linkMemoToEvent(memoPayload.related_event_id, memoId);
     }
 
     return {
       success: true,
-      data: {
-        memoId: memoId
-      }
+      memoId: memoId
     };
-  } catch (err) {
-    console.error('saveMemo エラー:', err);
-    return { success: false, error: 'メモの保存に失敗しました。' };
+  } catch (e) {
+    console.error('createMemo エラー:', e);
+    LogService.logError(e.message, { action: 'createMemo', data: memoPayload });
+    return {
+      success: false,
+      error: Validation.getSaveFailureMessage()
+    };
   }
 }
 
 /**
  * メモ一覧を取得
  * @param {Object} filters - フィルタ条件
- * @returns {Object} 結果
+ * @returns {Object} { success, data, error }
  */
 function listMemos(filters) {
   try {
-    const memos = SheetService.listMemos(filters || {});
+    var memos = SheetService.listMemos(filters || {});
     return {
       success: true,
       data: memos
     };
-  } catch (err) {
-    console.error('listMemos エラー:', err);
-    return { success: false, error: '履歴の取得に失敗しました。' };
+  } catch (e) {
+    console.error('listMemos エラー:', e);
+    LogService.logError(e.message, { action: 'listMemos' });
+    return {
+      success: false,
+      error: '履歴の取得に失敗しました。'
+    };
   }
 }
 
 /**
  * メモ詳細を取得
  * @param {string} memoId - メモID
- * @returns {Object} 結果
+ * @returns {Object} { success, data, error }
  */
 function getMemoDetail(memoId) {
   try {
-    const memo = SheetService.getMemoDetail(memoId);
+    var memo = SheetService.getMemoDetail(memoId);
     if (!memo) {
-      return { success: false, error: 'メモが見つかりません。' };
+      return {
+        success: false,
+        error: 'メモが見つかりません。'
+      };
     }
     return {
       success: true,
       data: memo
     };
-  } catch (err) {
-    console.error('getMemoDetail エラー:', err);
-    return { success: false, error: 'メモの取得に失敗しました。' };
+  } catch (e) {
+    console.error('getMemoDetail エラー:', e);
+    LogService.logError(e.message, { action: 'getMemoDetail', memoId: memoId });
+    return {
+      success: false,
+      error: 'メモの取得に失敗しました。'
+    };
   }
 }
 
@@ -318,14 +258,118 @@ function getMemoDetail(memoId) {
  * メモを更新
  * @param {string} memoId - メモID
  * @param {Object} updateData - 更新データ
- * @returns {Object} 結果
+ * @returns {Object} { success, error }
  */
 function updateMemo(memoId, updateData) {
   try {
     SheetService.updateMemo(memoId, updateData);
     return { success: true };
-  } catch (err) {
-    console.error('updateMemo エラー:', err);
-    return { success: false, error: 'メモの更新に失敗しました。' };
+  } catch (e) {
+    console.error('updateMemo エラー:', e);
+    LogService.logError(e.message, { action: 'updateMemo', memoId: memoId });
+    return {
+      success: false,
+      error: 'メモの更新に失敗しました。'
+    };
   }
+}
+
+// ============================================
+// Sprint 2 用（スタブ）
+// ============================================
+
+/**
+ * Chat を開く（Sprint 1: ログ記録 + URL返却のみ）
+ * @param {string} deptId - 部署ID
+ * @returns {Object} { success, chatUrl, eventId, error }
+ */
+function openChat(deptId) {
+  try {
+    var dept = SheetService.getDeptById(deptId);
+    if (!dept) {
+      return { success: false, error: '部署が見つかりません。' };
+    }
+
+    var chatUrl = dept.chat_url || '';
+    if (!chatUrl && dept.chat_space_id) {
+      chatUrl = 'https://chat.google.com/room/' + dept.chat_space_id.replace('spaces/', '');
+    }
+
+    if (!chatUrl) {
+      return { success: false, error: 'この部署のChatはまだ設定されていません。' };
+    }
+
+    // ログ記録
+    var result = LogService.logOpenChat(deptId, chatUrl);
+
+    return {
+      success: true,
+      chatUrl: chatUrl,
+      eventId: result.eventId,
+      deptName: dept.name
+    };
+  } catch (e) {
+    console.error('openChat エラー:', e);
+    LogService.logError(e.message, { action: 'openChat', deptId: deptId });
+    return { success: false, error: 'Chatを開けませんでした。' };
+  }
+}
+
+/**
+ * Meet を作成（Sprint 1: ダミー実装、ログ記録のみ）
+ * Sprint 2 で Meet API 実装
+ * @param {string} deptId - 部署ID
+ * @param {string} fromDeptId - 発信部署ID（任意）
+ * @returns {Object} { success, eventId, meetUrl, memoUrl, error }
+ */
+function createMeet(deptId, fromDeptId) {
+  try {
+    var dept = SheetService.getDeptById(deptId);
+    if (!dept) {
+      return { success: false, error: '部署が見つかりません。' };
+    }
+
+    // Sprint 1: ダミーのMeet URL（またはDept_Masterの常設Meet URL）
+    var meetUrl = dept.meet_url || 'https://meet.google.com/xxx-xxxx-xxx';
+    var meetCode = 'dummy-' + Date.now();
+
+    // ログ記録
+    var result = LogService.logCreateMeet(deptId, meetUrl, meetCode);
+
+    // メモ画面URL生成
+    var webAppUrl = ScriptApp.getService().getUrl();
+    var memoUrl = webAppUrl + '?page=memo&event_id=' + result.eventId +
+                  '&to=' + deptId + (fromDeptId ? '&from=' + fromDeptId : '');
+
+    return {
+      success: true,
+      eventId: result.eventId,
+      meetUrl: meetUrl,
+      memoUrl: memoUrl,
+      deptName: dept.name
+    };
+  } catch (e) {
+    console.error('createMeet エラー:', e);
+    LogService.logError(e.message, { action: 'createMeet', deptId: deptId });
+    return { success: false, error: 'Meetを作成できませんでした。' };
+  }
+}
+
+// ============================================
+// 管理者用（任意）
+// ============================================
+
+/**
+ * キャッシュをクリア
+ */
+function clearAllCache() {
+  SheetService.clearDeptCache();
+  LookupService.clearCache();
+}
+
+/**
+ * 現在のID番号を確認
+ */
+function getCurrentIdCounters() {
+  return IdService.getCurrentIds();
 }

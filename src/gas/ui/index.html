@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>部署クイック連絡</title>
-  <?!= include('ui/styles.css'); ?>
+  <style><?!= include('ui/styles.css'); ?></style>
 </head>
 <body>
   <!-- ローディングオーバーレイ -->
@@ -23,28 +23,7 @@
   </header>
 
   <!-- メインコンテンツ -->
-  <main id="main-content" class="main-content">
-    <!-- 動的にページが挿入される -->
-  </main>
-
-  <!-- 下部タブナビゲーション -->
-  <nav class="tab-nav">
-    <button class="tab-btn active" data-page="home">
-      <span class="tab-icon">🏠</span>
-      <span class="tab-label">ホーム</span>
-    </button>
-    <button class="tab-btn" data-page="history">
-      <span class="tab-icon">📋</span>
-      <span class="tab-label">履歴</span>
-    </button>
-    <button class="tab-btn" data-page="memo">
-      <span class="tab-icon">📝</span>
-      <span class="tab-label">メモ</span>
-    </button>
-  </nav>
-
-  <!-- ページテンプレート: ホーム（部署一覧） -->
-  <template id="page-home">
+  <main class="main-content">
     <div class="page page-home">
       <!-- 検索・フィルタ -->
       <div class="search-section">
@@ -52,11 +31,9 @@
           <span class="search-icon">🔍</span>
           <input type="text" id="search-input" class="search-input" placeholder="部署名で検索...">
         </div>
-        <div class="filter-chips">
-          <button class="chip active" data-location="all">すべて</button>
-          <button class="chip" data-location="本社">本社</button>
-          <button class="chip" data-location="工場">工場</button>
-          <button class="chip" data-location="事務所">事務所</button>
+        <div id="filter-chips" class="filter-chips">
+          <button class="chip active" data-site="">すべて</button>
+          <!-- 拠点チップは動的に生成 -->
         </div>
       </div>
 
@@ -65,155 +42,23 @@
         <!-- 動的に部署カードが挿入される -->
       </div>
     </div>
-  </template>
+  </main>
 
-  <!-- ページテンプレート: メモ入力 -->
-  <template id="page-memo">
-    <div class="page page-memo">
-      <div class="page-header">
-        <button class="back-btn" onclick="App.navigateTo('home')">← 戻る</button>
-        <h2 class="page-title">メモを残す</h2>
-      </div>
-
-      <form id="memo-form" class="memo-form">
-        <input type="hidden" id="memo-event-id" name="relatedEventId">
-
-        <!-- 発信・宛先部署 -->
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">発信部署</label>
-            <select id="memo-from-dept" name="fromDeptId" class="form-select">
-              <option value="">選択してください</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">宛先部署</label>
-            <select id="memo-to-dept" name="toDeptId" class="form-select">
-              <option value="">選択してください</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- 問い合わせ種別 -->
-        <div class="form-group">
-          <label class="form-label">問い合わせ種別 <span class="required">*</span></label>
-          <select id="memo-issue-type" name="issueType" class="form-select" required>
-            <option value="">選択してください</option>
-          </select>
-        </div>
-
-        <!-- 要点 -->
-        <div class="form-group">
-          <label class="form-label">要点（短く） <span class="required">*</span></label>
-          <input type="text" id="memo-summary" name="summary" class="form-input"
-                 placeholder="何についての連絡ですか？" required maxlength="100">
-        </div>
-
-        <!-- 決定事項/対応内容 -->
-        <div class="form-group">
-          <label class="form-label">決定事項/対応内容</label>
-          <textarea id="memo-decision" name="decision" class="form-textarea"
-                    placeholder="・箇条書きで記入&#10;・決まったこと、やること" rows="4"></textarea>
-        </div>
-
-        <!-- 担当者・期限 -->
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">担当者</label>
-            <input type="text" id="memo-assignee" name="assignee" class="form-input"
-                   placeholder="名前またはメール">
-          </div>
-          <div class="form-group">
-            <label class="form-label">期限</label>
-            <input type="date" id="memo-deadline" name="deadline" class="form-input">
-          </div>
-        </div>
-
-        <!-- 結果・優先度・ステータス -->
-        <div class="form-row three-col">
-          <div class="form-group">
-            <label class="form-label">結果</label>
-            <select id="memo-outcome" name="outcome" class="form-select">
-              <option value="">未選択</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">優先度</label>
-            <select id="memo-priority" name="priority" class="form-select">
-              <option value="中">中</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">ステータス</label>
-            <select id="memo-status" name="status" class="form-select">
-              <option value="Open">Open</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- 添付リンク -->
-        <div class="form-group">
-          <label class="form-label">添付リンク（Drive URL等）</label>
-          <input type="url" id="memo-attachment" name="attachmentUrl" class="form-input"
-                 placeholder="https://drive.google.com/...">
-        </div>
-
-        <!-- タグ -->
-        <div class="form-group">
-          <label class="form-label">タグ（任意）</label>
-          <input type="text" id="memo-tags" name="tags" class="form-input"
-                 placeholder="カンマ区切りで入力">
-        </div>
-
-        <!-- 保存ボタン -->
-        <button type="submit" class="btn btn-primary btn-large btn-save">
-          保存する
-        </button>
-      </form>
-    </div>
-  </template>
-
-  <!-- ページテンプレート: 履歴一覧 -->
-  <template id="page-history">
-    <div class="page page-history">
-      <div class="page-header">
-        <h2 class="page-title">履歴</h2>
-      </div>
-
-      <!-- フィルタ -->
-      <div class="history-filters">
-        <select id="history-status-filter" class="filter-select">
-          <option value="">すべてのステータス</option>
-          <option value="Open">Open</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Done">Done</option>
-          <option value="Canceled">Canceled</option>
-        </select>
-        <select id="history-type-filter" class="filter-select">
-          <option value="">すべての種別</option>
-        </select>
-      </div>
-
-      <!-- メモリスト -->
-      <div id="memo-list" class="memo-list">
-        <!-- 動的にメモカードが挿入される -->
-      </div>
-    </div>
-  </template>
-
-  <!-- ページテンプレート: 履歴詳細 -->
-  <template id="page-detail">
-    <div class="page page-detail">
-      <div class="page-header">
-        <button class="back-btn" onclick="App.navigateTo('history')">← 戻る</button>
-        <h2 class="page-title">メモ詳細</h2>
-      </div>
-
-      <div id="memo-detail" class="memo-detail">
-        <!-- 動的にメモ詳細が挿入される -->
-      </div>
-    </div>
-  </template>
+  <!-- 下部タブナビゲーション -->
+  <nav class="tab-nav">
+    <button class="tab-btn active" onclick="App.navigateTo('home')">
+      <span class="tab-icon">🏠</span>
+      <span class="tab-label">ホーム</span>
+    </button>
+    <button class="tab-btn" onclick="App.navigateTo('history')">
+      <span class="tab-icon">📋</span>
+      <span class="tab-label">履歴</span>
+    </button>
+    <button class="tab-btn" onclick="App.navigateTo('memo')">
+      <span class="tab-icon">📝</span>
+      <span class="tab-label">メモ</span>
+    </button>
+  </nav>
 
   <!-- Meet作成後のモーダル -->
   <div id="meet-modal" class="modal hidden">
@@ -223,23 +68,255 @@
       </div>
       <div class="modal-body">
         <p class="meet-info">
-          <span class="meet-dept-name"></span> への連絡を開始しました。
+          <span id="meet-dept-name" class="meet-dept-name"></span> への連絡を開始しました。
         </p>
         <p class="meet-notice">新しいタブでMeetが開きます。</p>
       </div>
       <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="App.closeMeetModal()">閉じる</button>
-        <button class="btn btn-primary" onclick="App.openMemoFromMeet()">メモを書く</button>
+        <button class="btn btn-secondary" onclick="Home.closeMeetModal()">閉じる</button>
+        <button class="btn btn-primary" onclick="Home.openMemoFromMeet()">メモを書く</button>
       </div>
     </div>
   </div>
 
-  <!-- 初期パラメータ -->
+  <!-- Bootstrapデータ埋め込み -->
   <script>
-    var INITIAL_PAGE = '<?= initialPage ?>';
-    var INITIAL_PARAMS = <?= initialParams ?>;
+    var BOOTSTRAP_DATA = <?!= bootstrapJson ?>;
+    var INITIAL_PARAMS = <?!= initialParams ?>;
+    var CURRENT_PAGE = '<?= currentPage ?>';
   </script>
 
   <?!= include('ui/app.js'); ?>
+
+  <script>
+  /**
+   * Home画面固有のロジック
+   */
+  var Home = (function() {
+    var filters = {
+      site: '',
+      search: ''
+    };
+    var currentMeetData = null;
+
+    /**
+     * 初期化
+     */
+    function init() {
+      App.init({
+        onReady: function() {
+          bindEvents();
+          renderSiteChips();
+          renderDeptList();
+        }
+      });
+    }
+
+    /**
+     * イベントバインド
+     */
+    function bindEvents() {
+      // 検索入力
+      var searchInput = document.getElementById('search-input');
+      if (searchInput) {
+        searchInput.addEventListener('input', App.debounce(function() {
+          filters.search = this.value.toLowerCase();
+          renderDeptList();
+        }, 300));
+      }
+    }
+
+    /**
+     * 拠点フィルタチップを描画
+     */
+    function renderSiteChips() {
+      var depts = App.getDepts();
+      var sites = [];
+      depts.forEach(function(dept) {
+        if (dept.site && sites.indexOf(dept.site) < 0) {
+          sites.push(dept.site);
+        }
+      });
+
+      var container = document.getElementById('filter-chips');
+      if (!container) return;
+
+      sites.forEach(function(site) {
+        var chip = document.createElement('button');
+        chip.className = 'chip';
+        chip.setAttribute('data-site', site);
+        chip.textContent = site;
+        chip.addEventListener('click', function() {
+          selectSiteChip(this);
+        });
+        container.appendChild(chip);
+      });
+
+      // 「すべて」チップのイベント
+      var allChip = container.querySelector('[data-site=""]');
+      if (allChip) {
+        allChip.addEventListener('click', function() {
+          selectSiteChip(this);
+        });
+      }
+    }
+
+    /**
+     * 拠点チップ選択
+     */
+    function selectSiteChip(chip) {
+      var chips = document.querySelectorAll('.filter-chips .chip');
+      chips.forEach(function(c) { c.classList.remove('active'); });
+      chip.classList.add('active');
+      filters.site = chip.getAttribute('data-site');
+      renderDeptList();
+    }
+
+    /**
+     * 部署リストを描画
+     */
+    function renderDeptList() {
+      var container = document.getElementById('dept-list');
+      if (!container) return;
+
+      var depts = App.getDepts();
+      var filteredDepts = depts.filter(function(dept) {
+        // 拠点フィルタ
+        if (filters.site && dept.site !== filters.site) {
+          return false;
+        }
+        // 検索フィルタ
+        if (filters.search) {
+          var name = (dept.name || '').toLowerCase();
+          var note = (dept.note || '').toLowerCase();
+          if (name.indexOf(filters.search) < 0 && note.indexOf(filters.search) < 0) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      if (filteredDepts.length === 0) {
+        container.innerHTML = '<div class="empty-state">' +
+          '<div class="empty-icon">🔍</div>' +
+          '<p class="empty-text">該当する部署がありません</p>' +
+          '</div>';
+        return;
+      }
+
+      container.innerHTML = filteredDepts.map(function(dept) {
+        var chatDisabled = !dept.chat_url && !dept.chat_space_id;
+        var meetDisabled = !dept.meet_url && !dept.notify_space_id;
+
+        return '<div class="dept-card" data-dept-id="' + App.escapeHtml(dept.dept_id) + '">' +
+          '<div class="dept-info">' +
+            '<div class="dept-name">' + App.escapeHtml(dept.name) + '</div>' +
+            (dept.note ? '<div class="dept-description">' + App.escapeHtml(dept.note) + '</div>' : '') +
+            '<span class="dept-location">' + App.escapeHtml(dept.site) + '</span>' +
+          '</div>' +
+          '<div class="dept-actions">' +
+            '<button class="btn btn-chat" ' + (chatDisabled ? 'disabled title="準備中です"' : '') +
+              ' onclick="Home.handleChat(\'' + App.escapeHtml(dept.dept_id) + '\')">' +
+              '💬 Chat' +
+            '</button>' +
+            '<button class="btn btn-meet" ' + (meetDisabled ? 'disabled title="準備中です"' : '') +
+              ' onclick="Home.handleMeet(\'' + App.escapeHtml(dept.dept_id) + '\')">' +
+              '📹 Meet' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    /**
+     * Chatボタン処理
+     */
+    function handleChat(deptId) {
+      App.showLoading('Chatを開いています...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          if (result.success) {
+            App.showToast(result.deptName + ' のChatを開きます', 'success');
+            window.open(result.chatUrl, '_blank');
+          } else {
+            App.showToast(result.error || 'Chatを開けませんでした', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('エラーが発生しました', 'error');
+          console.error(error);
+        })
+        .openChat(deptId);
+    }
+
+    /**
+     * Meetボタン処理
+     */
+    function handleMeet(deptId) {
+      App.showLoading('Meetを作成しています...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          if (result.success) {
+            currentMeetData = result;
+
+            // モーダルに情報を設定
+            var deptNameEl = document.getElementById('meet-dept-name');
+            if (deptNameEl) {
+              deptNameEl.textContent = result.deptName;
+            }
+            document.getElementById('meet-modal').classList.remove('hidden');
+
+            // 新しいタブでMeetを開く
+            window.open(result.meetUrl, '_blank');
+          } else {
+            App.showToast(result.error || 'Meetを作成できませんでした', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('エラーが発生しました', 'error');
+          console.error(error);
+        })
+        .createMeet(deptId, '');
+    }
+
+    /**
+     * Meetモーダルを閉じる
+     */
+    function closeMeetModal() {
+      document.getElementById('meet-modal').classList.add('hidden');
+      currentMeetData = null;
+    }
+
+    /**
+     * MeetからメモページへGO
+     */
+    function openMemoFromMeet() {
+      if (currentMeetData) {
+        App.navigateTo('memo', {
+          event_id: currentMeetData.eventId,
+          to: currentMeetData.deptId || ''
+        });
+      }
+      closeMeetModal();
+    }
+
+    return {
+      init: init,
+      handleChat: handleChat,
+      handleMeet: handleMeet,
+      closeMeetModal: closeMeetModal,
+      openMemoFromMeet: openMemoFromMeet
+    };
+  })();
+
+  // DOM読み込み完了後に初期化
+  document.addEventListener('DOMContentLoaded', Home.init);
+  </script>
 </body>
 </html>

@@ -1,27 +1,17 @@
 /**
- * SheetService - スプレッドシート操作サービス
+ * SheetService.gs - シート操作基盤サービス
  *
- * Dept_Master、Interaction_Log、Session_Memos、Lookupシートとの
- * 読み書き操作を提供
+ * Dept_Master, Session_Memosシートとの読み書き操作を提供
+ * ヘッダー行からindexマップを作成し、列番号固定を避ける
+ * CacheServiceで部署データをキャッシュ
  */
-var SheetService = (function() {
-  // シート名定数
-  var SHEET_NAMES = {
-    DEPT_MASTER: 'Dept_Master',
-    CONNECTION_RULES: 'Connection_Rules',
-    INTERACTION_LOG: 'Interaction_Log',
-    SESSION_MEMOS: 'Session_Memos',
-    LOOKUP: 'Lookup'
-  };
 
-  // ID採番のプロパティキー
-  var PROP_KEYS = {
-    NEXT_EVENT_ID: 'nextEventId',
-    NEXT_MEMO_ID: 'nextMemoId'
-  };
+var SheetService = (function() {
+  var DEPT_CACHE_KEY = 'dept_list_data';
 
   /**
    * スプレッドシートを取得
+   * @returns {Spreadsheet}
    */
   function getSpreadsheet() {
     return SpreadsheetApp.getActiveSpreadsheet();
@@ -29,6 +19,8 @@ var SheetService = (function() {
 
   /**
    * シートを取得
+   * @param {string} sheetName - シート名
+   * @returns {Sheet}
    */
   function getSheet(sheetName) {
     var ss = getSpreadsheet();
@@ -40,49 +32,84 @@ var SheetService = (function() {
   }
 
   /**
-   * シートデータをオブジェクト配列として取得
+   * ヘッダー行からカラムインデックスマップを作成
+   * @param {Array} headers - ヘッダー行の配列
+   * @returns {Object} カラム名→インデックスのマップ
    */
-  function getSheetData(sheetName) {
-    var sheet = getSheet(sheetName);
-    var data = sheet.getDataRange().getValues();
-    if (data.length < 2) return [];
-
-    var headers = data[0];
-    var rows = [];
-    for (var i = 1; i < data.length; i++) {
-      var row = {};
-      for (var j = 0; j < headers.length; j++) {
-        row[headers[j]] = data[i][j];
+  function buildColumnMap(headers) {
+    var map = {};
+    for (var i = 0; i < headers.length; i++) {
+      var name = String(headers[i]).trim();
+      if (name) {
+        map[name] = i;
       }
-      rows.push(row);
     }
-    return rows;
+    return map;
   }
 
   /**
-   * 次のIDを生成（排他制御付き）
+   * シートデータをオブジェクト配列として取得
+   * @param {string} sheetName - シート名
+   * @returns {Object} { headers, colMap, rows }
    */
-  function generateNextId(propKey, prefix, digits) {
-    var lock = LockService.getScriptLock();
-    try {
-      lock.waitLock(10000);
-      var props = PropertiesService.getScriptProperties();
-      var currentId = parseInt(props.getProperty(propKey) || '1', 10);
-      var newId = prefix + String(currentId).padStart(digits, '0');
-      props.setProperty(propKey, String(currentId + 1));
-      return newId;
-    } finally {
-      lock.releaseLock();
+  function getSheetDataWithMap(sheetName) {
+    var sheet = getSheet(sheetName);
+    var data = sheet.getDataRange().getValues();
+
+    if (data.length < 1) {
+      return { headers: [], colMap: {}, rows: [] };
     }
+
+    var headers = data[0];
+    var colMap = buildColumnMap(headers);
+    var rows = [];
+
+    for (var i = 1; i < data.length; i++) {
+      var rowData = {};
+      for (var j = 0; j < headers.length; j++) {
+        var key = String(headers[j]).trim();
+        if (key) {
+          rowData[key] = data[i][j];
+        }
+      }
+      rows.push(rowData);
+    }
+
+    return { headers: headers, colMap: colMap, rows: rows };
   }
 
   /**
    * 日付をフォーマット
+   * @param {Date|string} date - 日付
+   * @returns {string} フォーマットされた日付文字列
    */
   function formatDate(date) {
     if (!date) return '';
     if (typeof date === 'string') return date;
-    return Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+    try {
+      return Utilities.formatDate(date, Config.TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
+    } catch (e) {
+      return String(date);
+    }
+  }
+
+  /**
+   * 日付を短くフォーマット（日付のみ）
+   * @param {Date|string} date - 日付
+   * @returns {string} yyyy-MM-dd形式
+   */
+  function formatDateShort(date) {
+    if (!date) return '';
+    if (typeof date === 'string') {
+      // 既にyyyy-MM-dd形式なら変換不要
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+      date = new Date(date);
+    }
+    try {
+      return Utilities.formatDate(date, Config.TIMEZONE, 'yyyy-MM-dd');
+    } catch (e) {
+      return '';
+    }
   }
 
   // ============================================
@@ -90,28 +117,83 @@ var SheetService = (function() {
   // ============================================
 
   /**
-   * 部署一覧を取得（有効なもののみ、表示順でソート）
+   * 部署一覧を取得（有効=Y、表示順ソート、キャッシュ付き）
+   * @param {Object} filters - フィルタ条件 {q?, site?}
+   * @returns {Array} 部署リスト
    */
-  function getDeptList() {
-    var data = getSheetData(SHEET_NAMES.DEPT_MASTER);
+  function getDeptList(filters) {
+    filters = filters || {};
+
+    // キャッシュから取得を試みる
+    var cache = CacheService.getScriptCache();
+    var cachedData = cache.get(DEPT_CACHE_KEY);
+    var depts;
+
+    if (cachedData) {
+      try {
+        depts = JSON.parse(cachedData);
+      } catch (e) {
+        depts = null;
+      }
+    }
+
+    if (!depts) {
+      depts = fetchDeptListFromSheet();
+      // キャッシュに保存
+      try {
+        cache.put(DEPT_CACHE_KEY, JSON.stringify(depts), Config.CACHE_TTL);
+      } catch (e) {
+        console.warn('部署リストのキャッシュ保存に失敗:', e);
+      }
+    }
+
+    // フィルタ適用
+    var result = depts;
+
+    if (filters.q) {
+      var q = filters.q.toLowerCase();
+      result = result.filter(function(d) {
+        return d.name.toLowerCase().indexOf(q) >= 0 ||
+               (d.note && d.note.toLowerCase().indexOf(q) >= 0);
+      });
+    }
+
+    if (filters.site) {
+      result = result.filter(function(d) {
+        return d.site === filters.site;
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * シートから部署データを取得
+   * @returns {Array} 部署リスト
+   */
+  function fetchDeptListFromSheet() {
+    var sheetData = getSheetDataWithMap(Config.SHEET_DEPT);
+    var rows = sheetData.rows;
     var depts = [];
 
-    for (var i = 0; i < data.length; i++) {
-      var row = data[i];
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+
       // 有効=Y のみ
       if (row['有効(Y/N)'] !== 'Y') continue;
 
       depts.push({
-        id: row['dept_id'],
-        name: row['部署表示名'],
-        location: row['拠点'],
-        order: parseInt(row['表示順'] || '999', 10),
-        chatSpaceId: row['ChatスペースID (spaces/...)'] || '',
-        chatUrl: row['Chat URL (任意)'] || '',
-        notifySpaceId: row['通知先ChatスペースID'] || '',
-        meetEnabled: row['Meet利用'] === '部署主催',
-        permanentMeetUrl: row['常設Meet URL (任意)'] || '',
-        description: row['説明/メモ'] || ''
+        dept_id: row['dept_id'] || '',
+        name: row['部署表示名'] || '',
+        site: row['拠点'] || '',
+        order: parseInt(row['表示順'], 10) || 999,
+        enabled: true,
+        chat_url: row['Chat URL (任意)'] || '',
+        chat_space_id: row['ChatスペースID (spaces/...)'] || '',
+        notify_space_id: row['通知先ChatスペースID'] || '',
+        meet_mode: row['Meet利用'] || '',
+        meet_url: row['常設Meet URL (任意)'] || '',
+        note: row['説明/メモ'] || ''
       });
     }
 
@@ -125,110 +207,38 @@ var SheetService = (function() {
 
   /**
    * 部署IDで部署情報を取得
+   * @param {string} deptId - 部署ID
+   * @returns {Object|null} 部署情報
    */
   function getDeptById(deptId) {
     var depts = getDeptList();
     for (var i = 0; i < depts.length; i++) {
-      if (depts[i].id === deptId) {
+      if (depts[i].dept_id === deptId) {
         return depts[i];
       }
     }
     return null;
   }
 
-  // ============================================
-  // Lookup関連
-  // ============================================
-
   /**
-   * Lookupデータを取得（カテゴリ別に整理）
+   * 部署IDから部署名を取得するマップを生成
+   * @returns {Object} dept_id → name のマップ
    */
-  function getLookup() {
-    var data = getSheetData(SHEET_NAMES.LOOKUP);
-    var lookup = {
-      IssueType: [],
-      Outcome: [],
-      Priority: [],
-      Status: [],
-      Channel: []
-    };
-
-    for (var i = 0; i < data.length; i++) {
-      var row = data[i];
-      if (row['有効'] !== 'Y') continue;
-
-      var category = row['カテゴリ'];
-      if (lookup[category]) {
-        lookup[category].push({
-          value: row['値'],
-          order: parseInt(row['表示順'] || '999', 10)
-        });
-      }
+  function getDeptNameMap() {
+    var depts = getDeptList();
+    var map = {};
+    for (var i = 0; i < depts.length; i++) {
+      map[depts[i].dept_id] = depts[i].name;
     }
-
-    // 各カテゴリを表示順でソート
-    for (var cat in lookup) {
-      lookup[cat].sort(function(a, b) {
-        return a.order - b.order;
-      });
-      // valueのみの配列に変換
-      lookup[cat] = lookup[cat].map(function(item) {
-        return item.value;
-      });
-    }
-
-    return lookup;
-  }
-
-  // ============================================
-  // イベントログ関連
-  // ============================================
-
-  /**
-   * イベントログを追記
-   * @param {Object} eventData - イベントデータ
-   * @returns {string} 生成されたevent_id
-   */
-  function appendEventLog(eventData) {
-    var sheet = getSheet(SHEET_NAMES.INTERACTION_LOG);
-    var eventId = generateNextId(PROP_KEYS.NEXT_EVENT_ID, 'E', 4);
-
-    var row = [
-      eventId,                                      // event_id
-      formatDate(new Date()),                       // 日時
-      eventData.userEmail || '',                    // 発信者(Email)
-      eventData.userName || '',                     // 発信者表示名
-      eventData.fromDeptId || '',                   // 発信部署
-      eventData.toDeptId || '',                     // 宛先部署
-      eventData.channel || '',                      // チャネル
-      eventData.action || '',                       // アクション
-      eventData.chatSpaceId || '',                  // ChatスペースID
-      eventData.meetingCode || '',                  // Meet会議ID/コード
-      eventData.meetingUri || '',                   // Meet参加URL
-      eventData.priority || '中',                   // 優先度
-      eventData.status || 'Open',                   // ステータス
-      eventData.relatedMemoId || '',                // 関連memo_id
-      eventData.memo || ''                          // 備考
-    ];
-
-    sheet.appendRow(row);
-    return eventId;
+    return map;
   }
 
   /**
-   * イベントにメモIDを紐付け
+   * 部署キャッシュをクリア
    */
-  function updateEventMemoLink(eventId, memoId) {
-    var sheet = getSheet(SHEET_NAMES.INTERACTION_LOG);
-    var data = sheet.getDataRange().getValues();
-
-    for (var i = 1; i < data.length; i++) {
-      if (data[i][0] === eventId) {
-        // N列（14列目、0始まり=13）に関連memo_idを設定
-        sheet.getRange(i + 1, 14).setValue(memoId);
-        return;
-      }
-    }
+  function clearDeptCache() {
+    var cache = CacheService.getScriptCache();
+    cache.remove(DEPT_CACHE_KEY);
   }
 
   // ============================================
@@ -241,28 +251,28 @@ var SheetService = (function() {
    * @returns {string} 生成されたmemo_id
    */
   function createMemo(memoData) {
-    var sheet = getSheet(SHEET_NAMES.SESSION_MEMOS);
-    var memoId = generateNextId(PROP_KEYS.NEXT_MEMO_ID, 'M', 4);
+    var sheet = getSheet(Config.SHEET_MEMO);
+    var memoId = IdService.nextMemoId();
 
     var row = [
-      memoId,                                       // memo_id
-      formatDate(memoData.createdAt || new Date()), // 作成日時
-      memoData.creatorEmail || '',                  // 作成者(Email)
-      memoData.creatorName || '',                   // 作成者表示名
-      memoData.fromDeptId || '',                    // 発信部署
-      memoData.toDeptId || '',                      // 宛先部署
-      memoData.relatedEventId || '',                // 関連event_id
-      memoData.issueType || '',                     // 問い合わせ種別
-      memoData.summary || '',                       // 要点（短文）
-      memoData.decision || '',                      // 決定事項/対応内容
-      memoData.assignee || '',                      // 担当者
-      memoData.deadline ? formatDate(memoData.deadline) : '',  // 期限
-      memoData.outcome || '',                       // 結果
-      memoData.priority || '中',                    // 優先度
-      memoData.status || 'Open',                    // ステータス
-      memoData.attachmentUrl || '',                 // 添付リンク
-      memoData.tags || '',                          // タグ
-      memoData.note || ''                           // 備考
+      memoId,                                              // memo_id
+      formatDate(new Date()),                              // 作成日時
+      memoData.creator_email || '',                        // 作成者(Email)
+      memoData.creator_name || '',                         // 作成者表示名
+      memoData.from_dept_id || '',                         // 発信部署 (dept_id)
+      memoData.to_dept_id || '',                           // 宛先部署 (dept_id)
+      memoData.related_event_id || '',                     // 関連 event_id
+      memoData.issue_type || '',                           // 問い合わせ種別
+      memoData.summary || '',                              // 要点（短文）
+      memoData.decisions || '',                            // 決定事項/対応内容
+      memoData.owner || '',                                // 担当者(Email/氏名)
+      formatDateShort(memoData.due_date) || '',            // 期限
+      memoData.outcome || '',                              // 結果
+      memoData.priority || Config.DEFAULT_PRIORITY,        // 優先度
+      memoData.status || Config.DEFAULT_STATUS,            // ステータス
+      memoData.attachments || '',                          // 添付リンク(写真/図面/Drive)
+      memoData.tags || '',                                 // タグ(任意)
+      memoData.note || ''                                  // 備考
     ];
 
     sheet.appendRow(row);
@@ -275,47 +285,66 @@ var SheetService = (function() {
    * @returns {Array} メモ一覧
    */
   function listMemos(filters) {
-    var data = getSheetData(SHEET_NAMES.SESSION_MEMOS);
+    filters = filters || {};
+    var sheetData = getSheetDataWithMap(Config.SHEET_MEMO);
+    var rows = sheetData.rows;
+    var deptMap = getDeptNameMap();
     var memos = [];
 
-    // 部署マスタを取得（名前解決用）
-    var deptMap = {};
-    var depts = getDeptList();
-    for (var i = 0; i < depts.length; i++) {
-      deptMap[depts[i].id] = depts[i].name;
-    }
-
-    for (var i = 0; i < data.length; i++) {
-      var row = data[i];
-      if (!row['memo_id']) continue;
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var memoId = row['memo_id'];
+      if (!memoId) continue;
 
       // フィルタ適用
       if (filters.status && row['ステータス'] !== filters.status) continue;
       if (filters.issueType && row['問い合わせ種別'] !== filters.issueType) continue;
-      if (filters.deptId) {
-        if (row['発信部署 (dept_id)'] !== filters.deptId &&
-            row['宛先部署 (dept_id)'] !== filters.deptId) continue;
+
+      if (filters.fromDeptId && row['発信部署 (dept_id)'] !== filters.fromDeptId) continue;
+      if (filters.toDeptId && row['宛先部署 (dept_id)'] !== filters.toDeptId) continue;
+
+      // 日付フィルタ
+      if (filters.dateFrom || filters.dateTo) {
+        var createdAt = row['作成日時'];
+        if (createdAt) {
+          var createdDate = new Date(createdAt);
+          if (filters.dateFrom && createdDate < new Date(filters.dateFrom)) continue;
+          if (filters.dateTo && createdDate > new Date(filters.dateTo + ' 23:59:59')) continue;
+        }
       }
 
+      // 簡易検索（summary, decisions, tags）
+      if (filters.q) {
+        var q = filters.q.toLowerCase();
+        var searchFields = [
+          row['要点（短文）'] || '',
+          row['決定事項/対応内容'] || '',
+          row['タグ(任意)'] || ''
+        ].join(' ').toLowerCase();
+        if (searchFields.indexOf(q) < 0) continue;
+      }
+
+      var fromDeptId = row['発信部署 (dept_id)'] || '';
+      var toDeptId = row['宛先部署 (dept_id)'] || '';
+
       memos.push({
-        id: row['memo_id'],
-        createdAt: formatDate(row['作成日時']),
-        creatorName: row['作成者表示名'] || row['作成者(Email)'],
-        fromDeptId: row['発信部署 (dept_id)'],
-        fromDeptName: deptMap[row['発信部署 (dept_id)']] || row['発信部署 (dept_id)'],
-        toDeptId: row['宛先部署 (dept_id)'],
-        toDeptName: deptMap[row['宛先部署 (dept_id)']] || row['宛先部署 (dept_id)'],
-        issueType: row['問い合わせ種別'],
-        summary: row['要点（短文）'],
-        status: row['ステータス'],
-        priority: row['優先度'],
-        outcome: row['結果']
+        memo_id: memoId,
+        created_at: formatDate(row['作成日時']),
+        from_dept: fromDeptId,
+        from_dept_name: deptMap[fromDeptId] || fromDeptId,
+        to_dept: toDeptId,
+        to_dept_name: deptMap[toDeptId] || toDeptId,
+        issue_type: row['問い合わせ種別'] || '',
+        summary: row['要点（短文）'] || '',
+        status: row['ステータス'] || '',
+        priority: row['優先度'] || '',
+        outcome: row['結果'] || ''
       });
     }
 
     // 日時降順でソート
     memos.sort(function(a, b) {
-      return new Date(b.createdAt) - new Date(a.createdAt);
+      return new Date(b.created_at) - new Date(a.created_at);
     });
 
     // 最大件数制限（デフォルト50件）
@@ -329,39 +358,37 @@ var SheetService = (function() {
    * @returns {Object|null} メモ詳細
    */
   function getMemoDetail(memoId) {
-    var data = getSheetData(SHEET_NAMES.SESSION_MEMOS);
+    var sheetData = getSheetDataWithMap(Config.SHEET_MEMO);
+    var rows = sheetData.rows;
+    var deptMap = getDeptNameMap();
 
-    // 部署マスタを取得
-    var deptMap = {};
-    var depts = getDeptList();
-    for (var i = 0; i < depts.length; i++) {
-      deptMap[depts[i].id] = depts[i].name;
-    }
-
-    for (var i = 0; i < data.length; i++) {
-      var row = data[i];
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
       if (row['memo_id'] === memoId) {
+        var fromDeptId = row['発信部署 (dept_id)'] || '';
+        var toDeptId = row['宛先部署 (dept_id)'] || '';
+
         return {
-          id: row['memo_id'],
-          createdAt: formatDate(row['作成日時']),
-          creatorEmail: row['作成者(Email)'],
-          creatorName: row['作成者表示名'],
-          fromDeptId: row['発信部署 (dept_id)'],
-          fromDeptName: deptMap[row['発信部署 (dept_id)']] || row['発信部署 (dept_id)'],
-          toDeptId: row['宛先部署 (dept_id)'],
-          toDeptName: deptMap[row['宛先部署 (dept_id)']] || row['宛先部署 (dept_id)'],
-          relatedEventId: row['関連 event_id'],
-          issueType: row['問い合わせ種別'],
-          summary: row['要点（短文）'],
-          decision: row['決定事項/対応内容'],
-          assignee: row['担当者(Email/氏名)'],
-          deadline: row['期限'] ? formatDate(row['期限']) : '',
-          outcome: row['結果'],
-          priority: row['優先度'],
-          status: row['ステータス'],
-          attachmentUrl: row['添付リンク(写真/図面/Drive)'],
-          tags: row['タグ(任意)'],
-          note: row['備考']
+          memo_id: row['memo_id'],
+          created_at: formatDate(row['作成日時']),
+          creator_email: row['作成者(Email)'] || '',
+          creator_name: row['作成者表示名'] || '',
+          from_dept_id: fromDeptId,
+          from_dept_name: deptMap[fromDeptId] || fromDeptId,
+          to_dept_id: toDeptId,
+          to_dept_name: deptMap[toDeptId] || toDeptId,
+          related_event_id: row['関連 event_id'] || '',
+          issue_type: row['問い合わせ種別'] || '',
+          summary: row['要点（短文）'] || '',
+          decisions: row['決定事項/対応内容'] || '',
+          owner: row['担当者(Email/氏名)'] || '',
+          due_date: formatDateShort(row['期限']) || '',
+          outcome: row['結果'] || '',
+          priority: row['優先度'] || '',
+          status: row['ステータス'] || '',
+          attachments: row['添付リンク(写真/図面/Drive)'] || '',
+          tags: row['タグ(任意)'] || '',
+          note: row['備考'] || ''
         };
       }
     }
@@ -374,37 +401,37 @@ var SheetService = (function() {
    * @param {Object} updateData - 更新データ
    */
   function updateMemo(memoId, updateData) {
-    var sheet = getSheet(SHEET_NAMES.SESSION_MEMOS);
+    var sheet = getSheet(Config.SHEET_MEMO);
     var data = sheet.getDataRange().getValues();
     var headers = data[0];
+    var colMap = buildColumnMap(headers);
 
-    // ヘッダーとカラムのマッピング
-    var colMap = {
-      'issueType': '問い合わせ種別',
+    // フィールド名→ヘッダー名のマッピング
+    var fieldToHeader = {
+      'issue_type': '問い合わせ種別',
       'summary': '要点（短文）',
-      'decision': '決定事項/対応内容',
-      'assignee': '担当者(Email/氏名)',
-      'deadline': '期限',
+      'decisions': '決定事項/対応内容',
+      'owner': '担当者(Email/氏名)',
+      'due_date': '期限',
       'outcome': '結果',
       'priority': '優先度',
       'status': 'ステータス',
-      'attachmentUrl': '添付リンク(写真/図面/Drive)',
+      'attachments': '添付リンク(写真/図面/Drive)',
       'tags': 'タグ(任意)',
       'note': '備考'
     };
 
     for (var i = 1; i < data.length; i++) {
-      if (data[i][0] === memoId) {
-        for (var key in updateData) {
-          if (colMap[key]) {
-            var colIndex = headers.indexOf(colMap[key]);
-            if (colIndex >= 0) {
-              var value = updateData[key];
-              if (key === 'deadline' && value) {
-                value = formatDate(value);
-              }
-              sheet.getRange(i + 1, colIndex + 1).setValue(value);
+      if (data[i][colMap['memo_id']] === memoId) {
+        for (var field in updateData) {
+          var headerName = fieldToHeader[field];
+          if (headerName && colMap[headerName] !== undefined) {
+            var colIndex = colMap[headerName];
+            var value = updateData[field];
+            if (field === 'due_date' && value) {
+              value = formatDateShort(value);
             }
+            sheet.getRange(i + 1, colIndex + 1).setValue(value);
           }
         }
         return;
@@ -413,46 +440,20 @@ var SheetService = (function() {
     throw new Error('メモが見つかりません: ' + memoId);
   }
 
-  // ============================================
-  // Connection_Rules関連（将来用）
-  // ============================================
-
-  /**
-   * 推奨連絡先を取得
-   * @param {string} fromDeptId - 発信部署ID
-   * @returns {Array} 推奨部署リスト
-   */
-  function getRecommendedDepts(fromDeptId) {
-    var data = getSheetData(SHEET_NAMES.CONNECTION_RULES);
-    var recommended = [];
-
-    for (var i = 0; i < data.length; i++) {
-      var row = data[i];
-      if (row['発信部署 (dept_id)'] === fromDeptId &&
-          row['許可(Y/N)'] === 'Y' &&
-          row['推奨(Y/N)'] === 'Y') {
-        recommended.push({
-          toDeptId: row['宛先部署 (dept_id)'],
-          defaultChannel: row['既定チャネル'],
-          note: row['備考']
-        });
-      }
-    }
-
-    return recommended;
-  }
-
   // 公開API
   return {
+    getSpreadsheet: getSpreadsheet,
+    getSheet: getSheet,
+    getSheetDataWithMap: getSheetDataWithMap,
+    formatDate: formatDate,
+    formatDateShort: formatDateShort,
     getDeptList: getDeptList,
     getDeptById: getDeptById,
-    getLookup: getLookup,
-    appendEventLog: appendEventLog,
-    updateEventMemoLink: updateEventMemoLink,
+    getDeptNameMap: getDeptNameMap,
+    clearDeptCache: clearDeptCache,
     createMemo: createMemo,
     listMemos: listMemos,
     getMemoDetail: getMemoDetail,
-    updateMemo: updateMemo,
-    getRecommendedDepts: getRecommendedDepts
+    updateMemo: updateMemo
   };
 })();

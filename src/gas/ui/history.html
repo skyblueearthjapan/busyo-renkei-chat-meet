@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>履歴 - 部署クイック連絡</title>
+  <style><?!= include('ui/styles.css'); ?></style>
+</head>
+<body>
+  <!-- ローディングオーバーレイ -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p class="loading-text">読み込み中...</p>
+  </div>
+
+  <!-- トースト通知 -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- ヘッダー -->
+  <header class="app-header">
+    <h1 class="app-title">部署クイック連絡</h1>
+    <div id="user-info" class="user-info"></div>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main class="main-content">
+    <div class="page page-history">
+      <div class="page-header">
+        <h2 class="page-title">履歴</h2>
+      </div>
+
+      <!-- フィルタ -->
+      <div class="history-filters">
+        <select id="history-status-filter" class="filter-select">
+          <option value="">すべてのステータス</option>
+          <option value="Open">Open</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Done">Done</option>
+          <option value="Canceled">Canceled</option>
+        </select>
+        <select id="history-type-filter" class="filter-select">
+          <option value="">すべての種別</option>
+          <!-- 動的に設定 -->
+        </select>
+      </div>
+
+      <!-- メモリスト -->
+      <div id="memo-list" class="memo-list">
+        <!-- 動的にメモカードが挿入される -->
+      </div>
+    </div>
+  </main>
+
+  <!-- 下部タブナビゲーション -->
+  <nav class="tab-nav">
+    <button class="tab-btn" onclick="App.navigateTo('home')">
+      <span class="tab-icon">🏠</span>
+      <span class="tab-label">ホーム</span>
+    </button>
+    <button class="tab-btn active" onclick="App.navigateTo('history')">
+      <span class="tab-icon">📋</span>
+      <span class="tab-label">履歴</span>
+    </button>
+    <button class="tab-btn" onclick="App.navigateTo('memo')">
+      <span class="tab-icon">📝</span>
+      <span class="tab-label">メモ</span>
+    </button>
+  </nav>
+
+  <!-- Bootstrapデータ埋め込み -->
+  <script>
+    var BOOTSTRAP_DATA = <?!= bootstrapJson ?>;
+    var INITIAL_PARAMS = <?!= initialParams ?>;
+    var CURRENT_PAGE = '<?= currentPage ?>';
+  </script>
+
+  <?!= include('ui/app.js'); ?>
+
+  <script>
+  /**
+   * History画面固有のロジック
+   */
+  var History = (function() {
+
+    /**
+     * 初期化
+     */
+    function init() {
+      App.init({
+        onReady: function() {
+          setupFilters();
+          bindEvents();
+          loadMemos();
+        }
+      });
+    }
+
+    /**
+     * フィルタを設定
+     */
+    function setupFilters() {
+      // 種別フィルタを設定
+      var typeFilter = document.getElementById('history-type-filter');
+      if (typeFilter) {
+        var lookup = App.getLookup();
+        var issueTypes = lookup.IssueType || [];
+        issueTypes.forEach(function(type) {
+          var option = document.createElement('option');
+          option.value = type;
+          option.textContent = type;
+          typeFilter.appendChild(option);
+        });
+      }
+    }
+
+    /**
+     * イベントバインド
+     */
+    function bindEvents() {
+      var statusFilter = document.getElementById('history-status-filter');
+      var typeFilter = document.getElementById('history-type-filter');
+
+      if (statusFilter) {
+        statusFilter.addEventListener('change', loadMemos);
+      }
+      if (typeFilter) {
+        typeFilter.addEventListener('change', loadMemos);
+      }
+    }
+
+    /**
+     * メモ一覧を読み込み
+     */
+    function loadMemos() {
+      var statusFilter = document.getElementById('history-status-filter');
+      var typeFilter = document.getElementById('history-type-filter');
+
+      var filters = {
+        status: statusFilter ? statusFilter.value : '',
+        issueType: typeFilter ? typeFilter.value : '',
+        limit: 50
+      };
+
+      App.showLoading('履歴を読み込んでいます...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          if (result.success) {
+            renderMemoList(result.data);
+          } else {
+            App.showToast(result.error || '履歴の読み込みに失敗しました', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('エラーが発生しました', 'error');
+          console.error(error);
+        })
+        .listMemos(filters);
+    }
+
+    /**
+     * メモリストを描画
+     */
+    function renderMemoList(memos) {
+      var container = document.getElementById('memo-list');
+      if (!container) return;
+
+      if (!memos || memos.length === 0) {
+        container.innerHTML = '<div class="empty-state">' +
+          '<div class="empty-icon">📋</div>' +
+          '<p class="empty-text">履歴がありません</p>' +
+          '</div>';
+        return;
+      }
+
+      container.innerHTML = memos.map(function(memo) {
+        var statusClass = App.getStatusClass(memo.status);
+        return '<div class="memo-card" onclick="History.openDetail(\'' + App.escapeHtml(memo.memo_id) + '\')">' +
+          '<div class="memo-header">' +
+            '<span class="memo-date">' + App.formatDate(memo.created_at) + '</span>' +
+            '<span class="status-badge ' + statusClass + '">' + App.escapeHtml(memo.status) + '</span>' +
+          '</div>' +
+          '<div class="memo-route">' +
+            App.escapeHtml(memo.from_dept_name || '?') + ' → ' + App.escapeHtml(memo.to_dept_name || '?') +
+          '</div>' +
+          '<div class="memo-summary">' + App.escapeHtml(memo.summary || '') + '</div>' +
+          '<div class="memo-footer">' +
+            '<span class="memo-type">' + App.escapeHtml(memo.issue_type || '') + '</span>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    /**
+     * 詳細ページを開く
+     */
+    function openDetail(memoId) {
+      App.navigateTo('detail', { memo_id: memoId });
+    }
+
+    return {
+      init: init,
+      openDetail: openDetail
+    };
+  })();
+
+  // DOM読み込み完了後に初期化
+  document.addEventListener('DOMContentLoaded', History.init);
+  </script>
+</body>
+</html>
