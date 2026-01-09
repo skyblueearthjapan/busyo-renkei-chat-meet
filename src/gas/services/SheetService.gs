@@ -291,6 +291,37 @@ var SheetService = (function() {
     var deptMap = getDeptNameMap();
     var memos = [];
 
+    // プリセット: 現在のユーザー情報取得（createdByMe用）
+    var currentUserEmail = '';
+    if (filters.createdByMe) {
+      try {
+        currentUserEmail = Session.getActiveUser().getEmail() || '';
+      } catch (e) {
+        // 取得できない場合は空
+      }
+    }
+
+    // プリセット: 日付範囲の計算
+    var dateRangeStart = null;
+    var dateRangeEnd = null;
+    if (filters.dateRange) {
+      var now = new Date();
+      var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      if (filters.dateRange === 'today') {
+        dateRangeStart = today;
+        dateRangeEnd = new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1);
+      } else if (filters.dateRange === 'week') {
+        // 今週（日曜始まり）
+        var dayOfWeek = today.getDay();
+        dateRangeStart = new Date(today.getTime() - dayOfWeek * 24 * 60 * 60 * 1000);
+        dateRangeEnd = new Date(dateRangeStart.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);
+      } else if (filters.dateRange === 'month') {
+        dateRangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        dateRangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      }
+    }
+
     for (var i = 0; i < rows.length; i++) {
       var row = rows[i];
       var memoId = row['memo_id'];
@@ -303,13 +334,34 @@ var SheetService = (function() {
       if (filters.fromDeptId && row['発信部署 (dept_id)'] !== filters.fromDeptId) continue;
       if (filters.toDeptId && row['宛先部署 (dept_id)'] !== filters.toDeptId) continue;
 
-      // 日付フィルタ
+      // プリセット: 未完了のみ
+      if (filters.incomplete) {
+        var status = row['ステータス'] || '';
+        if (status === 'Done' || status === 'Canceled') continue;
+      }
+
+      // プリセット: 自分が作成
+      if (filters.createdByMe && currentUserEmail) {
+        var creatorEmail = row['作成者(Email)'] || '';
+        if (creatorEmail !== currentUserEmail) continue;
+      }
+
+      // 日付フィルタ（従来）
       if (filters.dateFrom || filters.dateTo) {
         var createdAt = row['作成日時'];
         if (createdAt) {
           var createdDate = new Date(createdAt);
           if (filters.dateFrom && createdDate < new Date(filters.dateFrom)) continue;
           if (filters.dateTo && createdDate > new Date(filters.dateTo + ' 23:59:59')) continue;
+        }
+      }
+
+      // プリセット: 日付範囲フィルタ
+      if (dateRangeStart && dateRangeEnd) {
+        var createdAt2 = row['作成日時'];
+        if (createdAt2) {
+          var createdDate2 = new Date(createdAt2);
+          if (createdDate2 < dateRangeStart || createdDate2 > dateRangeEnd) continue;
         }
       }
 

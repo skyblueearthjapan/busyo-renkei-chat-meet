@@ -30,6 +30,9 @@ function doGet(e) {
     case 'detail':
       htmlFile = 'ui/detail';
       break;
+    case 'admin':
+      htmlFile = 'ui/admin';
+      break;
     case 'home':
     default:
       htmlFile = 'ui/index';
@@ -533,6 +536,242 @@ function extractMeetingCodeFromUrl(url) {
   if (!url) return '';
   var match = url.match(/meet\.google\.com\/([a-z]{3}-[a-z]{4}-[a-z]{3})/i);
   return match ? match[1] : '';
+}
+
+// ============================================
+// Sprint 2.5: 通知再送 + 診断機能
+// ============================================
+
+/**
+ * 通知を再送（失敗した通知のリトライ）
+ * @param {string} eventId - 対象のイベントID
+ * @returns {Object} { success, notifyResult, error }
+ */
+function retryNotify(eventId) {
+  try {
+    // Interaction_LogからeventIdを検索して元情報を取得
+    var logSheet = SheetService.getSheet(Config.SHEET_LOG);
+    var logData = SheetService.getSheetDataWithMap(Config.SHEET_LOG);
+    var data = logSheet.getDataRange().getValues();
+    var colMap = logData.colMap;
+
+    var originalEvent = null;
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][colMap['event_id']] === eventId) {
+        originalEvent = {
+          rowIndex: i,
+          eventId: data[i][colMap['event_id']],
+          type: data[i][colMap['アクション']],
+          fromDeptId: data[i][colMap['発信部署']] || '',
+          toDeptId: data[i][colMap['宛先部署']] || '',
+          meetUrl: data[i][colMap['Meet参加URL']] || '',
+          meetCode: data[i][colMap['Meet会議ID/コード']] || ''
+        };
+        break;
+      }
+    }
+
+    if (!originalEvent) {
+      return { success: false, error: 'イベントが見つかりません: ' + eventId };
+    }
+
+    // 宛先部署を取得
+    var toDept = SheetService.getDeptById(originalEvent.toDeptId);
+    if (!toDept) {
+      return { success: false, error: '宛先部署が見つかりません。' };
+    }
+    if (!toDept.notify_space_id) {
+      return { success: false, error: 'この部署には通知先Chatスペースが設定されていません。' };
+    }
+
+    // ユーザー情報
+    var user = AuthService.getCurrentUser();
+
+    // 発信部署名
+    var fromDeptName = '';
+    if (originalEvent.fromDeptId) {
+      var fromDept = SheetService.getDeptById(originalEvent.fromDeptId);
+      fromDeptName = fromDept ? fromDept.name : '';
+    }
+
+    // memoUrl再生成
+    var memoUrl = UrlService.buildMemoUrl({
+      eventId: eventId,
+      fromDeptId: originalEvent.fromDeptId,
+      toDeptId: originalEvent.toDeptId
+    });
+
+    // meetingUri
+    var meetingUri = originalEvent.meetUrl || toDept.meet_url || '';
+
+    // Chat通知を再送
+    var cardPayload = GoogleChatService.buildIncomingCallCard({
+      title: '📣 連絡があります（再送）',
+      fromDeptName: fromDeptName || '（未設定）',
+      toDeptName: toDept.name,
+      callerName: user.name,
+      callerEmail: user.email,
+      meetingUri: meetingUri,
+      memoUrl: memoUrl,
+      eventId: eventId
+    });
+
+    var chatResult = Retry.withRetry(function() {
+      return GoogleChatService.postToSpace(toDept.notify_space_id, cardPayload);
+    }, { retries: 2, sleepMs: 500 });
+
+    if (chatResult.ok) {
+      // 成功ログ
+      LogService.logEvent({
+        type: Config.EVENT_TYPES.NOTIFY_CHAT,
+        channel: 'Meet',
+        fromDeptId: originalEvent.fromDeptId,
+        toDeptId: originalEvent.toDeptId,
+        chatSpaceId: toDept.notify_space_id,
+        meetUrl: meetingUri,
+        note: 'retry of: ' + eventId,
+        status: 'Open'
+      });
+
+      return {
+        success: true,
+        notifyResult: { ok: true, messageId: chatResult.messageId || '' }
+      };
+    } else {
+      return {
+        success: false,
+        error: '通知の再送に失敗しました: ' + (chatResult.error || '不明なエラー')
+      };
+    }
+
+  } catch (e) {
+    console.error('retryNotify エラー:', e);
+    return {
+      success: false,
+      error: '通知の再送に失敗しました。'
+    };
+  }
+}
+
+/**
+ * 部署設定を診断
+ * @returns {Object[]} 診断結果の配列
+ */
+function validateDeptSettings() {
+  try {
+    var depts = SheetService.getDeptList();
+    var results = [];
+
+    depts.forEach(function(dept) {
+      var issues = [];
+      var warnings = [];
+
+      // 有効チェック
+      if (dept.enabled === 'N') {
+        issues.push('無効化されています');
+      }
+
+      // Chat設定チェック
+      if (!dept.chat_url && !dept.chat_space_id) {
+        warnings.push('ChatスペースURL未設定（Chatボタン無効）');
+      }
+
+      // Meet設定チェック
+      if (!dept.meet_url && dept.meet_mode !== 'API生成') {
+        warnings.push('Meet URLが未設定');
+      }
+
+      // 通知設定チェック
+      if (!dept.notify_space_id) {
+        warnings.push('通知先ChatスペースID未設定（自動通知なし）');
+      }
+
+      results.push({
+        deptId: dept.dept_id,
+        name: dept.name,
+        site: dept.site || '',
+        enabled: dept.enabled !== 'N',
+        hasChat: !!(dept.chat_url || dept.chat_space_id),
+        hasMeet: !!(dept.meet_url) || dept.meet_mode === 'API生成',
+        hasNotify: !!dept.notify_space_id,
+        issues: issues,
+        warnings: warnings,
+        status: issues.length > 0 ? 'error' : (warnings.length > 0 ? 'warning' : 'ok')
+      });
+    });
+
+    return {
+      success: true,
+      data: results,
+      summary: {
+        total: results.length,
+        ok: results.filter(function(r) { return r.status === 'ok'; }).length,
+        warning: results.filter(function(r) { return r.status === 'warning'; }).length,
+        error: results.filter(function(r) { return r.status === 'error'; }).length
+      }
+    };
+
+  } catch (e) {
+    console.error('validateDeptSettings エラー:', e);
+    return {
+      success: false,
+      error: '診断に失敗しました: ' + e.message
+    };
+  }
+}
+
+/**
+ * API接続テスト
+ * @returns {Object} テスト結果
+ */
+function testApiConnectivity() {
+  var results = {
+    spreadsheet: { ok: false, message: '' },
+    meet: { ok: false, message: '' },
+    chat: { ok: false, message: '' }
+  };
+
+  // スプレッドシート接続テスト
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(Config.SHEET_DEPT);
+    if (sheet) {
+      results.spreadsheet = { ok: true, message: 'シートにアクセス可能' };
+    } else {
+      results.spreadsheet = { ok: false, message: 'Dept_Masterシートが見つかりません' };
+    }
+  } catch (e) {
+    results.spreadsheet = { ok: false, message: 'スプレッドシートエラー: ' + e.message };
+  }
+
+  // Meet API テスト（最低限のトークン確認）
+  try {
+    var token = ScriptApp.getOAuthToken();
+    if (token) {
+      results.meet = { ok: true, message: 'OAuthトークン取得可能' };
+    } else {
+      results.meet = { ok: false, message: 'OAuthトークンが取得できません' };
+    }
+  } catch (e) {
+    results.meet = { ok: false, message: 'OAuth エラー: ' + e.message };
+  }
+
+  // Chat API テスト（トークン確認のみ）
+  try {
+    var token = ScriptApp.getOAuthToken();
+    if (token) {
+      results.chat = { ok: true, message: 'OAuthトークン取得可能' };
+    } else {
+      results.chat = { ok: false, message: 'OAuthトークンが取得できません' };
+    }
+  } catch (e) {
+    results.chat = { ok: false, message: 'OAuth エラー: ' + e.message };
+  }
+
+  return {
+    success: true,
+    data: results
+  };
 }
 
 // ============================================

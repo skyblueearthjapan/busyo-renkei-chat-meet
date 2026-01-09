@@ -29,7 +29,16 @@
         <h2 class="page-title">履歴</h2>
       </div>
 
-      <!-- フィルタ -->
+      <!-- プリセットフィルタ -->
+      <div class="filter-chips" style="margin-bottom:12px;">
+        <button class="chip active" data-preset="all" onclick="History.applyPreset('all')">すべて</button>
+        <button class="chip" data-preset="incomplete" onclick="History.applyPreset('incomplete')">未完了</button>
+        <button class="chip" data-preset="today" onclick="History.applyPreset('today')">今日</button>
+        <button class="chip" data-preset="week" onclick="History.applyPreset('week')">今週</button>
+        <button class="chip" data-preset="mine" onclick="History.applyPreset('mine')">自分の作成</button>
+      </div>
+
+      <!-- 詳細フィルタ -->
       <div class="history-filters">
         <select id="history-status-filter" class="filter-select">
           <option value="">すべてのステータス</option>
@@ -81,6 +90,7 @@
    * History画面固有のロジック
    */
   var History = (function() {
+    var currentPreset = 'all';
 
     /**
      * 初期化
@@ -121,11 +131,54 @@
       var typeFilter = document.getElementById('history-type-filter');
 
       if (statusFilter) {
-        statusFilter.addEventListener('change', loadMemos);
+        statusFilter.addEventListener('change', function() {
+          currentPreset = ''; // プリセット解除
+          clearPresetChips();
+          loadMemos();
+        });
       }
       if (typeFilter) {
-        typeFilter.addEventListener('change', loadMemos);
+        typeFilter.addEventListener('change', function() {
+          currentPreset = ''; // プリセット解除
+          clearPresetChips();
+          loadMemos();
+        });
       }
+    }
+
+    /**
+     * プリセットを適用
+     */
+    function applyPreset(preset) {
+      currentPreset = preset;
+
+      // チップのアクティブ状態を更新
+      var chips = document.querySelectorAll('.filter-chips .chip');
+      chips.forEach(function(chip) {
+        if (chip.getAttribute('data-preset') === preset) {
+          chip.classList.add('active');
+        } else {
+          chip.classList.remove('active');
+        }
+      });
+
+      // ドロップダウンをリセット
+      var statusFilter = document.getElementById('history-status-filter');
+      var typeFilter = document.getElementById('history-type-filter');
+      if (statusFilter) statusFilter.value = '';
+      if (typeFilter) typeFilter.value = '';
+
+      loadMemos();
+    }
+
+    /**
+     * プリセットチップをクリア
+     */
+    function clearPresetChips() {
+      var chips = document.querySelectorAll('.filter-chips .chip');
+      chips.forEach(function(chip) {
+        chip.classList.remove('active');
+      });
     }
 
     /**
@@ -140,6 +193,17 @@
         issueType: typeFilter ? typeFilter.value : '',
         limit: 50
       };
+
+      // プリセット条件を追加
+      if (currentPreset === 'incomplete') {
+        filters.incomplete = true;
+      } else if (currentPreset === 'today') {
+        filters.dateRange = 'today';
+      } else if (currentPreset === 'week') {
+        filters.dateRange = 'week';
+      } else if (currentPreset === 'mine') {
+        filters.createdByMe = true;
+      }
 
       App.showLoading('履歴を読み込んでいます...');
 
@@ -202,7 +266,8 @@
 
     return {
       init: init,
-      openDetail: openDetail
+      openDetail: openDetail,
+      applyPreset: applyPreset
     };
   })();
 

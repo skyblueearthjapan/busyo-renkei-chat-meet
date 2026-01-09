@@ -60,7 +60,7 @@
     </button>
   </nav>
 
-  <!-- Meet作成後のモーダル（Sprint 2: 通知結果表示） -->
+  <!-- Meet作成後のモーダル（Sprint 2.5: 通知結果に応じたフォールバックUI） -->
   <div id="meet-modal" class="modal hidden">
     <div class="modal-content">
       <div class="modal-header">
@@ -70,7 +70,22 @@
         <p class="meet-info" style="font-size:1.1rem; margin-bottom:8px;">
           <span id="meet-dept-name" class="meet-dept-name"></span> への連絡
         </p>
-        <p id="meet-notify-status" class="meet-notice" style="font-size:0.875rem; color:#6B7280;"></p>
+
+        <!-- 通知成功時 -->
+        <div id="notify-success" class="notify-status-box" style="display:none; background:#ECFDF5; border:1px solid #6EE7B7; border-radius:8px; padding:12px; margin:8px 0;">
+          <p style="color:#059669; font-size:0.9rem; margin:0;">
+            ✅ 相手部署に通知しました
+          </p>
+        </div>
+
+        <!-- 通知スキップ/失敗時 -->
+        <div id="notify-fallback" class="notify-status-box" style="display:none; background:#FEF3C7; border:1px solid #FCD34D; border-radius:8px; padding:12px; margin:8px 0;">
+          <p id="notify-fallback-message" style="color:#D97706; font-size:0.9rem; margin:0 0 8px 0;"></p>
+          <p style="color:#78716C; font-size:0.8rem; margin:0;">
+            Chatで直接連絡するか、通知を再送してください。
+          </p>
+        </div>
+
         <p style="font-size:0.75rem; color:#9CA3AF; margin-top:12px;">
           イベントID: <span id="meet-event-id"></span>
         </p>
@@ -79,6 +94,19 @@
         <button class="btn btn-primary btn-large" onclick="Home.openMemoFromMeet()">
           📝 メモを書く
         </button>
+
+        <!-- 通知失敗/スキップ時に表示するフォールバックボタン -->
+        <div id="fallback-actions" style="display:none; width:100%;">
+          <div style="display:flex; gap:8px; width:100%; margin-bottom:8px;">
+            <button class="btn btn-warning" style="flex:1;" onclick="Home.retryNotification()">
+              🔄 通知を再送
+            </button>
+            <button id="btn-open-chat" class="btn btn-secondary" style="flex:1;" onclick="Home.openChatFromModal()">
+              💬 Chatを開く
+            </button>
+          </div>
+        </div>
+
         <div style="display:flex; gap:8px; width:100%;">
           <button class="btn btn-secondary" style="flex:1;" onclick="Home.copyMeetLink()">
             🔗 リンクをコピー
@@ -266,7 +294,7 @@
     }
 
     /**
-     * Meetボタン処理（Sprint 2: createMeetAndNotify対応）
+     * Meetボタン処理（Sprint 2.5: 通知結果に応じたフォールバックUI対応）
      */
     function handleMeet(deptId) {
       App.showLoading('接続しています...');
@@ -277,28 +305,60 @@
           if (result.success) {
             currentMeetData = result;
 
+            // 部署情報もキャッシュ（ChatURL取得用）
+            var depts = App.getDepts();
+            var targetDept = depts.find(function(d) { return d.dept_id === deptId; });
+            currentMeetData.targetDept = targetDept || null;
+
             // モーダルに情報を設定
             var deptNameEl = document.getElementById('meet-dept-name');
             if (deptNameEl) {
               deptNameEl.textContent = result.deptName;
             }
 
-            // 通知結果を表示
-            var notifyStatusEl = document.getElementById('meet-notify-status');
-            if (notifyStatusEl) {
-              if (result.notifyResult && result.notifyResult.ok) {
-                notifyStatusEl.textContent = '✅ 相手部署に通知しました';
-                notifyStatusEl.style.color = '#059669';
-              } else {
-                notifyStatusEl.textContent = '📢 相手部署への通知はスキップされました（Chatで連絡してください）';
-                notifyStatusEl.style.color = '#D97706';
-              }
-            }
-
             // イベントID表示
             var eventIdEl = document.getElementById('meet-event-id');
             if (eventIdEl) {
               eventIdEl.textContent = result.eventId || '';
+            }
+
+            // 通知ステータスUIを更新
+            var notifySuccess = document.getElementById('notify-success');
+            var notifyFallback = document.getElementById('notify-fallback');
+            var fallbackActions = document.getElementById('fallback-actions');
+            var fallbackMessage = document.getElementById('notify-fallback-message');
+
+            // リセット
+            notifySuccess.style.display = 'none';
+            notifyFallback.style.display = 'none';
+            fallbackActions.style.display = 'none';
+
+            if (result.notifyResult && result.notifyResult.ok) {
+              // 通知成功
+              notifySuccess.style.display = 'block';
+              App.showToast('Meetを開始しました。通知も送信済みです。', 'success');
+            } else {
+              // 通知失敗またはスキップ
+              notifyFallback.style.display = 'block';
+              fallbackActions.style.display = 'block';
+
+              if (targetDept && !targetDept.notify_space_id) {
+                fallbackMessage.textContent = '📢 この部署には通知設定がありません';
+              } else {
+                fallbackMessage.textContent = '⚠️ 通知の送信に失敗しました';
+              }
+
+              // Chatボタンの有効/無効
+              var btnOpenChat = document.getElementById('btn-open-chat');
+              if (btnOpenChat) {
+                var hasChat = targetDept && (targetDept.chat_url || targetDept.chat_space_id);
+                btnOpenChat.disabled = !hasChat;
+                if (!hasChat) {
+                  btnOpenChat.title = 'Chat未設定';
+                }
+              }
+
+              App.showToast('Meetを開始しました。相手には直接連絡してください。', 'info');
             }
 
             document.getElementById('meet-modal').classList.remove('hidden');
@@ -308,8 +368,6 @@
             if (meetUrl) {
               window.open(meetUrl, '_blank');
             }
-
-            App.showToast('Meetを開始しました。メモも残せます。', 'success');
           } else {
             App.showToast(result.error || 'うまく接続できませんでした。もう一度お試しください。', 'error');
           }
@@ -373,6 +431,70 @@
     }
 
     /**
+     * 通知を再送（Sprint 2.5）
+     */
+    function retryNotification() {
+      if (!currentMeetData || !currentMeetData.eventId) {
+        App.showToast('イベント情報がありません', 'error');
+        return;
+      }
+
+      App.showLoading('通知を再送しています...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          if (result.success) {
+            // 通知成功表示に切り替え
+            var notifySuccess = document.getElementById('notify-success');
+            var notifyFallback = document.getElementById('notify-fallback');
+            var fallbackActions = document.getElementById('fallback-actions');
+
+            notifySuccess.style.display = 'block';
+            notifyFallback.style.display = 'none';
+            fallbackActions.style.display = 'none';
+
+            // currentMeetData も更新
+            currentMeetData.notifyResult = result.notifyResult;
+
+            App.showToast('通知を再送しました', 'success');
+          } else {
+            App.showToast(result.error || '通知の再送に失敗しました', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('通知の再送に失敗しました', 'error');
+          console.error(error);
+        })
+        .retryNotify(currentMeetData.eventId);
+    }
+
+    /**
+     * モーダルからChatを開く（Sprint 2.5）
+     */
+    function openChatFromModal() {
+      if (!currentMeetData || !currentMeetData.targetDept) {
+        App.showToast('部署情報がありません', 'error');
+        return;
+      }
+
+      var dept = currentMeetData.targetDept;
+      var chatUrl = dept.chat_url || '';
+      if (!chatUrl && dept.chat_space_id) {
+        chatUrl = 'https://chat.google.com/room/' + dept.chat_space_id.replace('spaces/', '');
+      }
+
+      if (!chatUrl) {
+        App.showToast('この部署のChatは設定されていません', 'error');
+        return;
+      }
+
+      window.open(chatUrl, '_blank');
+      App.showToast(dept.name + ' のChatを開きます', 'success');
+    }
+
+    /**
      * フォールバック: テキストをクリップボードにコピー
      */
     function fallbackCopyTextToClipboard(text) {
@@ -400,7 +522,9 @@
       handleMeet: handleMeet,
       closeMeetModal: closeMeetModal,
       openMemoFromMeet: openMemoFromMeet,
-      copyMeetLink: copyMeetLink
+      copyMeetLink: copyMeetLink,
+      retryNotification: retryNotification,
+      openChatFromModal: openChatFromModal
     };
   })();
 

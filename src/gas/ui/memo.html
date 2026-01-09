@@ -49,12 +49,13 @@
           </div>
         </div>
 
-        <!-- 問い合わせ種別 -->
+        <!-- 問い合わせ種別（チップ選択） -->
         <div class="form-group">
           <label class="form-label">問い合わせ種別 <span class="required">*</span></label>
-          <select id="memo-issue-type" name="issue_type" class="form-select" required>
-            <option value="">選択してください</option>
-          </select>
+          <input type="hidden" id="memo-issue-type" name="issue_type">
+          <div id="issue-type-chips" class="filter-chips" style="margin-top:8px;">
+            <!-- 動的にチップが生成される -->
+          </div>
         </div>
 
         <!-- 要点 -->
@@ -63,11 +64,23 @@
           <input type="text" id="memo-summary" name="summary" class="form-input"
                  placeholder="何についての連絡ですか？" required maxlength="300">
           <div id="summary-counter" style="text-align:right; font-size:0.75rem; color:#6B7280; margin-top:4px;">0 / 300</div>
+          <!-- 要点テンプレート -->
+          <div class="summary-templates" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;">
+            <button type="button" class="chip" data-template="〇〇について確認">確認</button>
+            <button type="button" class="chip" data-template="〇〇の依頼">依頼</button>
+            <button type="button" class="chip" data-template="〇〇の件で相談">相談</button>
+            <button type="button" class="chip" data-template="〇〇の報告">報告</button>
+            <button type="button" class="chip" data-template="〇〇のトラブル対応">トラブル</button>
+          </div>
         </div>
 
         <!-- 決定事項/対応内容 -->
         <div class="form-group">
           <label class="form-label">決定事項/対応内容</label>
+          <div style="display:flex; gap:6px; margin-bottom:8px;">
+            <button type="button" class="chip" onclick="Memo.addBullet()">・ 箇条書き追加</button>
+            <button type="button" class="chip" onclick="Memo.addCheckbox()">☐ チェック追加</button>
+          </div>
           <textarea id="memo-decisions" name="decisions" class="form-textarea"
                     placeholder="・箇条書きで記入&#10;・決まったこと、やること" rows="4"></textarea>
         </div>
@@ -189,8 +202,10 @@
       App.populateDeptSelect('memo-from-dept', params.from || '');
       App.populateDeptSelect('memo-to-dept', params.to || '');
 
-      // Lookupセレクトを設定
-      App.populateLookupSelect('memo-issue-type', 'IssueType');
+      // 問い合わせ種別チップを設定
+      setupIssueTypeChips();
+
+      // Lookupセレクトを設定（IssueType以外）
       App.populateLookupSelect('memo-outcome', 'Outcome');
       App.populateLookupSelect('memo-priority', 'Priority', '中');
       App.populateLookupSelect('memo-status', 'Status', 'Open');
@@ -199,6 +214,43 @@
       if (params.event_id) {
         document.getElementById('memo-event-id').value = params.event_id;
       }
+    }
+
+    /**
+     * 問い合わせ種別チップを設定
+     */
+    function setupIssueTypeChips() {
+      var lookup = App.getLookup();
+      var issueTypes = lookup.IssueType || ['問い合わせ', '依頼', '報告', '相談', 'トラブル'];
+
+      var container = document.getElementById('issue-type-chips');
+      if (!container) return;
+
+      container.innerHTML = issueTypes.map(function(type) {
+        return '<button type="button" class="chip" data-issue-type="' + App.escapeHtml(type) + '">' +
+          App.escapeHtml(type) + '</button>';
+      }).join('');
+
+      // チップクリックイベント
+      container.querySelectorAll('.chip').forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          selectIssueType(this);
+        });
+      });
+    }
+
+    /**
+     * 問い合わせ種別を選択
+     */
+    function selectIssueType(chip) {
+      var container = document.getElementById('issue-type-chips');
+      container.querySelectorAll('.chip').forEach(function(c) {
+        c.classList.remove('active');
+      });
+      chip.classList.add('active');
+
+      var value = chip.getAttribute('data-issue-type');
+      document.getElementById('memo-issue-type').value = value;
     }
 
     /**
@@ -220,6 +272,27 @@
         });
       }
 
+      // 要点テンプレートボタン
+      var templateBtns = document.querySelectorAll('.summary-templates .chip');
+      templateBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var template = this.getAttribute('data-template');
+          if (summaryInput && template) {
+            summaryInput.value = template;
+            summaryInput.focus();
+            // カーソルを〇〇の位置に
+            var pos = template.indexOf('〇〇');
+            if (pos >= 0) {
+              summaryInput.setSelectionRange(pos, pos + 2);
+            }
+            // カウンターを更新
+            if (summaryCounter) {
+              summaryCounter.textContent = template.length + ' / 300';
+            }
+          }
+        });
+      });
+
       // フォーム送信
       var form = document.getElementById('memo-form');
       if (form) {
@@ -228,6 +301,54 @@
           saveMemo();
         });
       }
+    }
+
+    /**
+     * 箇条書きを追加
+     */
+    function addBullet() {
+      var textarea = document.getElementById('memo-decisions');
+      if (!textarea) return;
+
+      var value = textarea.value;
+      var cursorPos = textarea.selectionStart;
+
+      // カーソル位置に「・」を挿入
+      var before = value.substring(0, cursorPos);
+      var after = value.substring(cursorPos);
+
+      // 改行があれば改行後に追加、なければそのまま
+      if (before.length > 0 && !before.endsWith('\n')) {
+        textarea.value = before + '\n・ ' + after;
+        textarea.selectionStart = textarea.selectionEnd = cursorPos + 3;
+      } else {
+        textarea.value = before + '・ ' + after;
+        textarea.selectionStart = textarea.selectionEnd = cursorPos + 2;
+      }
+      textarea.focus();
+    }
+
+    /**
+     * チェックボックスを追加
+     */
+    function addCheckbox() {
+      var textarea = document.getElementById('memo-decisions');
+      if (!textarea) return;
+
+      var value = textarea.value;
+      var cursorPos = textarea.selectionStart;
+
+      var before = value.substring(0, cursorPos);
+      var after = value.substring(cursorPos);
+
+      if (before.length > 0 && !before.endsWith('\n')) {
+        textarea.value = before + '\n☐ ' + after;
+        textarea.selectionStart = textarea.selectionEnd = cursorPos + 3;
+      } else {
+        textarea.value = before + '☐ ' + after;
+        textarea.selectionStart = textarea.selectionEnd = cursorPos + 2;
+      }
+      textarea.focus();
     }
 
     /**
@@ -283,7 +404,9 @@
     }
 
     return {
-      init: init
+      init: init,
+      addBullet: addBullet,
+      addCheckbox: addCheckbox
     };
   })();
 

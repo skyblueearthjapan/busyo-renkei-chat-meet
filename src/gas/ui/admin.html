@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理者診断 - 部署クイック連絡</title>
+  <style><?!= include('ui/styles.css'); ?></style>
+  <style>
+    /* 管理者ページ固有スタイル */
+    .admin-page {
+      padding-bottom: 40px;
+    }
+
+    .admin-section {
+      background: var(--color-base);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .admin-section h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .summary-item {
+      text-align: center;
+      padding: 12px 8px;
+      border-radius: var(--radius-md);
+      background: var(--color-bg);
+    }
+
+    .summary-item.ok { background: var(--color-success); }
+    .summary-item.warning { background: var(--color-warning); }
+    .summary-item.error { background: var(--color-danger); }
+
+    .summary-number {
+      font-size: 1.5rem;
+      font-weight: 600;
+      display: block;
+    }
+
+    .summary-label {
+      font-size: 0.75rem;
+      color: var(--color-text-light);
+    }
+
+    .dept-diag-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .dept-diag-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-radius: var(--radius-md);
+      background: var(--color-bg);
+    }
+
+    .dept-diag-item.ok { border-left: 4px solid var(--color-success-dark); }
+    .dept-diag-item.warning { border-left: 4px solid var(--color-warning-dark); }
+    .dept-diag-item.error { border-left: 4px solid var(--color-danger-dark); }
+
+    .diag-icon {
+      font-size: 1.25rem;
+    }
+
+    .diag-info {
+      flex: 1;
+    }
+
+    .diag-name {
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+
+    .diag-detail {
+      font-size: 0.75rem;
+      color: var(--color-text-light);
+    }
+
+    .diag-badges {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .diag-badge {
+      font-size: 0.625rem;
+      padding: 2px 6px;
+      border-radius: var(--radius-full);
+      background: var(--color-border);
+    }
+
+    .diag-badge.has { background: var(--color-sky); }
+    .diag-badge.missing { background: var(--color-danger); }
+
+    .api-status-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .api-status-item {
+      text-align: center;
+      padding: 16px;
+      border-radius: var(--radius-md);
+      background: var(--color-bg);
+    }
+
+    .api-status-item.ok { background: var(--color-success); }
+    .api-status-item.ng { background: var(--color-danger); }
+
+    .api-status-icon {
+      font-size: 1.5rem;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .api-status-name {
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+
+    .api-status-msg {
+      font-size: 0.75rem;
+      color: var(--color-text-light);
+      margin-top: 4px;
+    }
+
+    .issues-list {
+      margin-top: 8px;
+    }
+
+    .issue-item {
+      font-size: 0.8rem;
+      padding: 4px 0;
+      color: var(--color-text-light);
+    }
+
+    .issue-item.error { color: #DC2626; }
+    .issue-item.warning { color: #D97706; }
+  </style>
+</head>
+<body>
+  <!-- ローディングオーバーレイ -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p class="loading-text">診断中...</p>
+  </div>
+
+  <!-- トースト通知 -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- ヘッダー -->
+  <header class="app-header">
+    <h1 class="app-title">管理者診断</h1>
+    <div id="user-info" class="user-info"></div>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main class="main-content admin-page">
+    <div class="page-header">
+      <button class="back-btn" onclick="App.navigateTo('home')">← ホームへ</button>
+    </div>
+
+    <!-- API接続テスト -->
+    <section class="admin-section">
+      <h2>🔌 API接続状況</h2>
+      <div id="api-status" class="api-status-grid">
+        <div class="api-status-item">
+          <span class="api-status-icon">⏳</span>
+          <span class="api-status-name">確認中...</span>
+        </div>
+      </div>
+      <div style="margin-top: 12px; text-align: center;">
+        <button class="btn btn-secondary" onclick="Admin.testApiConnectivity()">
+          🔄 再テスト
+        </button>
+      </div>
+    </section>
+
+    <!-- 部署設定サマリー -->
+    <section class="admin-section">
+      <h2>📊 部署設定サマリー</h2>
+      <div id="dept-summary" class="summary-grid">
+        <div class="summary-item">
+          <span class="summary-number">-</span>
+          <span class="summary-label">合計</span>
+        </div>
+        <div class="summary-item ok">
+          <span class="summary-number">-</span>
+          <span class="summary-label">正常</span>
+        </div>
+        <div class="summary-item warning">
+          <span class="summary-number">-</span>
+          <span class="summary-label">警告</span>
+        </div>
+        <div class="summary-item error">
+          <span class="summary-number">-</span>
+          <span class="summary-label">エラー</span>
+        </div>
+      </div>
+      <button class="btn btn-secondary" style="width:100%;" onclick="Admin.runDiagnosis()">
+        🔍 再診断
+      </button>
+    </section>
+
+    <!-- 部署一覧 -->
+    <section class="admin-section">
+      <h2>📋 部署別診断結果</h2>
+      <div id="dept-diag-list" class="dept-diag-list">
+        <div class="empty-state">
+          <p class="empty-text">診断中...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- キャッシュクリア -->
+    <section class="admin-section">
+      <h2>🧹 メンテナンス</h2>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn btn-secondary" onclick="Admin.clearCache()">
+          🗑️ キャッシュクリア
+        </button>
+        <button class="btn btn-secondary" onclick="Admin.showIdCounters()">
+          🔢 ID採番確認
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bootstrapデータ埋め込み -->
+  <script>
+    var BOOTSTRAP_DATA = <?!= bootstrapJson ?>;
+    var INITIAL_PARAMS = <?!= initialParams ?>;
+    var CURRENT_PAGE = '<?= currentPage ?>';
+  </script>
+
+  <?!= include('ui/app.js'); ?>
+
+  <script>
+  /**
+   * Admin画面固有のロジック
+   */
+  var Admin = (function() {
+
+    /**
+     * 初期化
+     */
+    function init() {
+      App.init({
+        onReady: function() {
+          // 自動で診断実行
+          runDiagnosis();
+          testApiConnectivity();
+        }
+      });
+    }
+
+    /**
+     * 部署設定診断を実行
+     */
+    function runDiagnosis() {
+      App.showLoading('診断中...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          if (result.success) {
+            renderSummary(result.summary);
+            renderDeptList(result.data);
+            App.showToast('診断が完了しました', 'success');
+          } else {
+            App.showToast(result.error || '診断に失敗しました', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('診断に失敗しました', 'error');
+          console.error(error);
+        })
+        .validateDeptSettings();
+    }
+
+    /**
+     * サマリーを描画
+     */
+    function renderSummary(summary) {
+      var container = document.getElementById('dept-summary');
+      container.innerHTML =
+        '<div class="summary-item">' +
+          '<span class="summary-number">' + summary.total + '</span>' +
+          '<span class="summary-label">合計</span>' +
+        '</div>' +
+        '<div class="summary-item ok">' +
+          '<span class="summary-number">' + summary.ok + '</span>' +
+          '<span class="summary-label">正常</span>' +
+        '</div>' +
+        '<div class="summary-item warning">' +
+          '<span class="summary-number">' + summary.warning + '</span>' +
+          '<span class="summary-label">警告</span>' +
+        '</div>' +
+        '<div class="summary-item error">' +
+          '<span class="summary-number">' + summary.error + '</span>' +
+          '<span class="summary-label">エラー</span>' +
+        '</div>';
+    }
+
+    /**
+     * 部署診断リストを描画
+     */
+    function renderDeptList(depts) {
+      var container = document.getElementById('dept-diag-list');
+
+      if (!depts || depts.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p class="empty-text">部署が登録されていません</p></div>';
+        return;
+      }
+
+      container.innerHTML = depts.map(function(dept) {
+        var icon = dept.status === 'ok' ? '✅' : (dept.status === 'warning' ? '⚠️' : '❌');
+
+        var badges = '';
+        badges += '<span class="diag-badge ' + (dept.hasChat ? 'has' : 'missing') + '">Chat: ' + (dept.hasChat ? '✓' : '✗') + '</span>';
+        badges += '<span class="diag-badge ' + (dept.hasMeet ? 'has' : 'missing') + '">Meet: ' + (dept.hasMeet ? '✓' : '✗') + '</span>';
+        badges += '<span class="diag-badge ' + (dept.hasNotify ? 'has' : 'missing') + '">通知: ' + (dept.hasNotify ? '✓' : '✗') + '</span>';
+
+        var issues = '';
+        if (dept.issues && dept.issues.length > 0) {
+          issues = '<div class="issues-list">' + dept.issues.map(function(i) {
+            return '<div class="issue-item error">❌ ' + App.escapeHtml(i) + '</div>';
+          }).join('') + '</div>';
+        }
+        if (dept.warnings && dept.warnings.length > 0) {
+          issues += '<div class="issues-list">' + dept.warnings.map(function(w) {
+            return '<div class="issue-item warning">⚠️ ' + App.escapeHtml(w) + '</div>';
+          }).join('') + '</div>';
+        }
+
+        return '<div class="dept-diag-item ' + dept.status + '">' +
+          '<span class="diag-icon">' + icon + '</span>' +
+          '<div class="diag-info">' +
+            '<div class="diag-name">' + App.escapeHtml(dept.name) + '</div>' +
+            '<div class="diag-detail">' + App.escapeHtml(dept.deptId) + ' / ' + App.escapeHtml(dept.site || '(拠点未設定)') + '</div>' +
+            '<div class="diag-badges">' + badges + '</div>' +
+            issues +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    /**
+     * API接続テスト
+     */
+    function testApiConnectivity() {
+      var container = document.getElementById('api-status');
+      container.innerHTML =
+        '<div class="api-status-item">' +
+          '<span class="api-status-icon">⏳</span>' +
+          '<span class="api-status-name">テスト中...</span>' +
+        '</div>';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            renderApiStatus(result.data);
+          } else {
+            container.innerHTML = '<div class="api-status-item ng"><span class="api-status-icon">❌</span><span class="api-status-name">テスト失敗</span></div>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = '<div class="api-status-item ng"><span class="api-status-icon">❌</span><span class="api-status-name">テスト失敗</span></div>';
+          console.error(error);
+        })
+        .testApiConnectivity();
+    }
+
+    /**
+     * API接続状況を描画
+     */
+    function renderApiStatus(data) {
+      var container = document.getElementById('api-status');
+      container.innerHTML =
+        '<div class="api-status-item ' + (data.spreadsheet.ok ? 'ok' : 'ng') + '">' +
+          '<span class="api-status-icon">' + (data.spreadsheet.ok ? '✅' : '❌') + '</span>' +
+          '<span class="api-status-name">Spreadsheet</span>' +
+          '<span class="api-status-msg">' + App.escapeHtml(data.spreadsheet.message) + '</span>' +
+        '</div>' +
+        '<div class="api-status-item ' + (data.meet.ok ? 'ok' : 'ng') + '">' +
+          '<span class="api-status-icon">' + (data.meet.ok ? '✅' : '❌') + '</span>' +
+          '<span class="api-status-name">Meet</span>' +
+          '<span class="api-status-msg">' + App.escapeHtml(data.meet.message) + '</span>' +
+        '</div>' +
+        '<div class="api-status-item ' + (data.chat.ok ? 'ok' : 'ng') + '">' +
+          '<span class="api-status-icon">' + (data.chat.ok ? '✅' : '❌') + '</span>' +
+          '<span class="api-status-name">Chat</span>' +
+          '<span class="api-status-msg">' + App.escapeHtml(data.chat.message) + '</span>' +
+        '</div>';
+    }
+
+    /**
+     * キャッシュクリア
+     */
+    function clearCache() {
+      App.showLoading('キャッシュをクリアしています...');
+
+      google.script.run
+        .withSuccessHandler(function() {
+          App.hideLoading();
+          App.showToast('キャッシュをクリアしました', 'success');
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('クリアに失敗しました', 'error');
+          console.error(error);
+        })
+        .clearAllCache();
+    }
+
+    /**
+     * ID採番確認
+     */
+    function showIdCounters() {
+      App.showLoading('確認中...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          if (result) {
+            alert('現在のID採番状況:\n\n' +
+              'イベントID: ' + (result.eventId || 'E000001') + '\n' +
+              'メモID: ' + (result.memoId || 'M000001'));
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('確認に失敗しました', 'error');
+          console.error(error);
+        })
+        .getCurrentIdCounters();
+    }
+
+    return {
+      init: init,
+      runDiagnosis: runDiagnosis,
+      testApiConnectivity: testApiConnectivity,
+      clearCache: clearCache,
+      showIdCounters: showIdCounters
+    };
+  })();
+
+  // DOM読み込み完了後に初期化
+  document.addEventListener('DOMContentLoaded', Admin.init);
+  </script>
+</body>
+</html>
