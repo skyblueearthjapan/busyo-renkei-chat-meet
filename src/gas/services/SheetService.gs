@@ -365,6 +365,23 @@ var SheetService = (function() {
         }
       }
 
+      // Sprint 3: 期限切れフィルタ
+      if (filters.overdue) {
+        var status = row['ステータス'] || '';
+        // 完了/キャンセルは除外
+        if (status === 'Done' || status === 'Canceled') continue;
+        var dueDate = row['期限'];
+        if (!dueDate) continue; // 期限未設定は除外
+        try {
+          var dueDateParsed = new Date(dueDate);
+          var today = new Date();
+          today.setHours(0, 0, 0, 0);
+          if (dueDateParsed >= today) continue; // 期限切れでないものは除外
+        } catch (e) {
+          continue;
+        }
+      }
+
       // 簡易検索（summary, decisions, tags）
       if (filters.q) {
         var q = filters.q.toLowerCase();
@@ -390,7 +407,13 @@ var SheetService = (function() {
         summary: row['要点（短文）'] || '',
         status: row['ステータス'] || '',
         priority: row['優先度'] || '',
-        outcome: row['結果'] || ''
+        outcome: row['結果'] || '',
+        // Sprint 3: 詳細ビュー用の追加フィールド
+        due_date: formatDateShort(row['期限']) || '',
+        assignee: row['担当者(Email/氏名)'] || '',
+        tags: row['タグ(任意)'] || '',
+        attachments: row['添付リンク(写真/図面/Drive)'] || '',
+        result: row['結果'] || ''
       });
     }
 

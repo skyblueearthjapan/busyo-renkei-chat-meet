@@ -25,8 +25,20 @@
   <!-- メインコンテンツ -->
   <main class="main-content">
     <div class="page page-home">
-      <!-- 検索・フィルタ -->
-      <div class="search-section">
+      <!-- Sprint 3: 電話帳タブ -->
+      <div class="home-tabs" style="display:flex; gap:8px; margin-bottom:16px;">
+        <button class="chip active" data-home-tab="favorites" onclick="Home.switchTab('favorites')">⭐ お気に入り</button>
+        <button class="chip" data-home-tab="recents" onclick="Home.switchTab('recents')">🕐 最近</button>
+        <button class="chip" data-home-tab="all" onclick="Home.switchTab('all')">📋 全部</button>
+      </div>
+
+      <!-- お気に入り/最近/推奨セクション -->
+      <div id="quick-section" style="margin-bottom:16px;">
+        <!-- 動的に表示 -->
+      </div>
+
+      <!-- 検索・フィルタ（全部タブ時のみ表示） -->
+      <div id="search-section" class="search-section" style="display:none;">
         <div class="search-box">
           <span class="search-icon">🔍</span>
           <input type="text" id="search-input" class="search-input" placeholder="部署名で検索...">
@@ -130,7 +142,7 @@
 
   <script>
   /**
-   * Home画面固有のロジック
+   * Home画面固有のロジック（Sprint 3: お気に入り/最近/推奨対応）
    */
   var Home = (function() {
     var filters = {
@@ -138,6 +150,12 @@
       search: ''
     };
     var currentMeetData = null;
+    var currentTab = 'favorites';
+    var homeData = {
+      favorites: [],
+      recents: [],
+      recommended: []
+    };
 
     /**
      * 初期化
@@ -145,11 +163,126 @@
     function init() {
       App.init({
         onReady: function() {
+          loadHomeData();
           bindEvents();
           renderSiteChips();
-          renderDeptList();
         }
       });
+    }
+
+    /**
+     * Home用データを読み込み
+     */
+    function loadHomeData() {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            homeData = result.data;
+          }
+          // 初期タブを表示
+          switchTab(currentTab);
+        })
+        .withFailureHandler(function(error) {
+          console.error('loadHomeData エラー:', error);
+          switchTab(currentTab);
+        })
+        .getHomeData();
+    }
+
+    /**
+     * タブ切り替え
+     */
+    function switchTab(tab) {
+      currentTab = tab;
+
+      // タブボタンのアクティブ状態を更新
+      var tabs = document.querySelectorAll('.home-tabs .chip');
+      tabs.forEach(function(t) {
+        if (t.getAttribute('data-home-tab') === tab) {
+          t.classList.add('active');
+        } else {
+          t.classList.remove('active');
+        }
+      });
+
+      // 検索セクションの表示/非表示
+      var searchSection = document.getElementById('search-section');
+      var quickSection = document.getElementById('quick-section');
+
+      if (tab === 'all') {
+        searchSection.style.display = 'block';
+        quickSection.style.display = 'none';
+        renderDeptList();
+      } else {
+        searchSection.style.display = 'none';
+        quickSection.style.display = 'block';
+        renderQuickSection(tab);
+      }
+    }
+
+    /**
+     * クイックセクション（お気に入り/最近/推奨）を描画
+     */
+    function renderQuickSection(tab) {
+      var container = document.getElementById('quick-section');
+      var listContainer = document.getElementById('dept-list');
+      if (!container || !listContainer) return;
+
+      var deptIds = [];
+      var emptyMessage = '';
+      var emptyIcon = '';
+
+      if (tab === 'favorites') {
+        deptIds = homeData.favorites || [];
+        emptyMessage = 'お気に入りがありません。部署カードの★をタップして追加しましょう。';
+        emptyIcon = '⭐';
+      } else if (tab === 'recents') {
+        deptIds = homeData.recents || [];
+        emptyMessage = '最近使った部署がありません';
+        emptyIcon = '🕐';
+      }
+
+      // 推奨がある場合は表示
+      var recommended = homeData.recommended || [];
+      if (recommended.length > 0 && tab === 'favorites') {
+        container.innerHTML = '<div style="margin-bottom:12px;">' +
+          '<span style="font-size:0.8rem; color:#6B7280;">📌 おすすめ</span>' +
+          '<div class="recents-chips" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">' +
+          recommended.slice(0, 4).map(function(deptId) {
+            var dept = getDeptById(deptId);
+            if (!dept) return '';
+            return '<button class="chip" onclick="Home.handleMeet(\'' + App.escapeHtml(deptId) + '\')">' +
+              App.escapeHtml(dept.name) + '</button>';
+          }).join('') +
+          '</div></div>';
+      } else {
+        container.innerHTML = '';
+      }
+
+      // メインリスト
+      if (deptIds.length === 0) {
+        listContainer.innerHTML = '<div class="empty-state">' +
+          '<div class="empty-icon">' + emptyIcon + '</div>' +
+          '<p class="empty-text">' + emptyMessage + '</p>' +
+          '</div>';
+        return;
+      }
+
+      var depts = deptIds.map(function(id) { return getDeptById(id); }).filter(Boolean);
+      listContainer.innerHTML = depts.map(function(dept) {
+        return renderDeptCard(dept, true);
+      }).join('');
+    }
+
+    /**
+     * 部署IDから部署情報を取得
+     */
+    function getDeptById(deptId) {
+      var depts = App.getDepts();
+      for (var i = 0; i < depts.length; i++) {
+        if (depts[i].dept_id === deptId) return depts[i];
+      }
+      return null;
     }
 
     /**
@@ -213,6 +346,40 @@
     }
 
     /**
+     * 部署カードをレンダリング
+     */
+    function renderDeptCard(dept, showFavStar) {
+      var chatDisabled = !dept.chat_url && !dept.chat_space_id;
+      var meetDisabled = dept.enabled === 'N';
+      var isFav = homeData.favorites && homeData.favorites.indexOf(dept.dept_id) >= 0;
+
+      var starHtml = '';
+      if (showFavStar !== false) {
+        starHtml = '<button class="fav-star" onclick="event.stopPropagation(); Home.toggleFavorite(\'' + App.escapeHtml(dept.dept_id) + '\')" title="' + (isFav ? 'お気に入り解除' : 'お気に入り追加') + '" style="position:absolute; top:8px; right:8px; background:none; border:none; font-size:1.2rem; cursor:pointer; opacity:' + (isFav ? '1' : '0.4') + ';">' +
+          (isFav ? '⭐' : '☆') + '</button>';
+      }
+
+      return '<div class="dept-card" data-dept-id="' + App.escapeHtml(dept.dept_id) + '" style="position:relative;">' +
+        starHtml +
+        '<div class="dept-info">' +
+          '<div class="dept-name">' + App.escapeHtml(dept.name) + '</div>' +
+          (dept.note ? '<div class="dept-description">' + App.escapeHtml(dept.note) + '</div>' : '') +
+          '<span class="dept-location">' + App.escapeHtml(dept.site) + '</span>' +
+        '</div>' +
+        '<div class="dept-actions">' +
+          '<button class="btn btn-chat" ' + (chatDisabled ? 'disabled title="準備中です"' : '') +
+            ' onclick="Home.handleChat(\'' + App.escapeHtml(dept.dept_id) + '\')">' +
+            '💬 Chat' +
+          '</button>' +
+          '<button class="btn btn-meet" ' + (meetDisabled ? 'disabled title="準備中です"' : '') +
+            ' onclick="Home.handleMeet(\'' + App.escapeHtml(dept.dept_id) + '\')">' +
+            '📹 Meet' +
+          '</button>' +
+        '</div>' +
+      '</div>';
+    }
+
+    /**
      * 部署リストを描画
      */
     function renderDeptList() {
@@ -245,28 +412,37 @@
       }
 
       container.innerHTML = filteredDepts.map(function(dept) {
-        var chatDisabled = !dept.chat_url && !dept.chat_space_id;
-        // Sprint 2: Meetは notify_space_id がなくても使用可能（通知がスキップされるだけ）
-        var meetDisabled = dept.enabled === 'N';
-
-        return '<div class="dept-card" data-dept-id="' + App.escapeHtml(dept.dept_id) + '">' +
-          '<div class="dept-info">' +
-            '<div class="dept-name">' + App.escapeHtml(dept.name) + '</div>' +
-            (dept.note ? '<div class="dept-description">' + App.escapeHtml(dept.note) + '</div>' : '') +
-            '<span class="dept-location">' + App.escapeHtml(dept.site) + '</span>' +
-          '</div>' +
-          '<div class="dept-actions">' +
-            '<button class="btn btn-chat" ' + (chatDisabled ? 'disabled title="準備中です"' : '') +
-              ' onclick="Home.handleChat(\'' + App.escapeHtml(dept.dept_id) + '\')">' +
-              '💬 Chat' +
-            '</button>' +
-            '<button class="btn btn-meet" ' + (meetDisabled ? 'disabled title="準備中です"' : '') +
-              ' onclick="Home.handleMeet(\'' + App.escapeHtml(dept.dept_id) + '\')">' +
-              '📹 Meet' +
-            '</button>' +
-          '</div>' +
-        '</div>';
+        return renderDeptCard(dept, true);
       }).join('');
+    }
+
+    /**
+     * お気に入りトグル
+     */
+    function toggleFavorite(deptId) {
+      var isFav = homeData.favorites && homeData.favorites.indexOf(deptId) >= 0;
+      var newState = !isFav;
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            homeData.favorites = result.favorites;
+            App.showToast(newState ? 'お気に入りに追加しました' : 'お気に入りから削除しました', 'success');
+            // 現在のタブを再描画
+            if (currentTab === 'favorites') {
+              renderQuickSection('favorites');
+            } else if (currentTab === 'all') {
+              renderDeptList();
+            }
+          } else {
+            App.showToast(result.error || '設定に失敗しました', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.showToast('設定に失敗しました', 'error');
+          console.error(error);
+        })
+        .setFavorite(deptId, newState);
     }
 
     /**
@@ -518,6 +694,8 @@
 
     return {
       init: init,
+      switchTab: switchTab,
+      toggleFavorite: toggleFavorite,
       handleChat: handleChat,
       handleMeet: handleMeet,
       closeMeetModal: closeMeetModal,

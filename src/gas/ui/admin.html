@@ -232,6 +232,34 @@
       </div>
     </section>
 
+    <!-- 回覧表生成 (Sprint 3) -->
+    <section class="admin-section">
+      <h2>📋 回覧表生成</h2>
+      <div style="margin-bottom:12px;">
+        <label class="form-label" style="font-size:0.875rem;">期間</label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
+          <button class="chip active" data-period="week" onclick="Admin.selectPeriod('week')">今週</button>
+          <button class="chip" data-period="lastweek" onclick="Admin.selectPeriod('lastweek')">先週</button>
+          <button class="chip" data-period="month" onclick="Admin.selectPeriod('month')">今月</button>
+          <button class="chip" data-period="lastmonth" onclick="Admin.selectPeriod('lastmonth')">先月</button>
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label class="form-label" style="font-size:0.875rem;">対象</label>
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          <button class="chip active" data-status="all" onclick="Admin.selectStatus('all')">すべて</button>
+          <button class="chip" data-status="incomplete" onclick="Admin.selectStatus('incomplete')">未完了のみ</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;" onclick="Admin.generateCirculation()">
+        📊 回覧表を生成
+      </button>
+      <div id="circulation-result" style="display:none; margin-top:12px; padding:12px; background:#ECFDF5; border-radius:8px;">
+        <p id="circulation-result-text" style="font-size:0.875rem; color:#059669;"></p>
+        <a id="circulation-result-link" href="#" target="_blank" style="font-size:0.875rem; color:#1F2A37;">📎 シートを開く</a>
+      </div>
+    </section>
+
     <!-- キャッシュクリア -->
     <section class="admin-section">
       <h2>🧹 メンテナンス</h2>
@@ -457,12 +485,124 @@
         .getCurrentIdCounters();
     }
 
+    // ============================================
+    // 回覧表生成（Sprint 3）
+    // ============================================
+    var circulationPeriod = 'week';
+    var circulationStatus = 'all';
+
+    /**
+     * 期間を選択
+     */
+    function selectPeriod(period) {
+      circulationPeriod = period;
+      var chips = document.querySelectorAll('[data-period]');
+      chips.forEach(function(c) {
+        if (c.getAttribute('data-period') === period) {
+          c.classList.add('active');
+        } else {
+          c.classList.remove('active');
+        }
+      });
+    }
+
+    /**
+     * ステータスを選択
+     */
+    function selectStatus(status) {
+      circulationStatus = status;
+      var chips = document.querySelectorAll('[data-status]');
+      chips.forEach(function(c) {
+        if (c.getAttribute('data-status') === status) {
+          c.classList.add('active');
+        } else {
+          c.classList.remove('active');
+        }
+      });
+    }
+
+    /**
+     * 回覧表を生成
+     */
+    function generateCirculation() {
+      App.showLoading('回覧表を生成しています...');
+
+      // 期間の計算
+      var now = new Date();
+      var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      var dateFrom, dateTo;
+
+      if (circulationPeriod === 'week') {
+        // 今週（日曜始まり）
+        var dayOfWeek = today.getDay();
+        dateFrom = new Date(today.getTime() - dayOfWeek * 24 * 60 * 60 * 1000);
+        dateTo = today;
+      } else if (circulationPeriod === 'lastweek') {
+        // 先週
+        var dayOfWeek = today.getDay();
+        var thisWeekStart = new Date(today.getTime() - dayOfWeek * 24 * 60 * 60 * 1000);
+        dateFrom = new Date(thisWeekStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+        dateTo = new Date(thisWeekStart.getTime() - 1);
+      } else if (circulationPeriod === 'month') {
+        // 今月
+        dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+        dateTo = today;
+      } else if (circulationPeriod === 'lastmonth') {
+        // 先月
+        dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        dateTo = new Date(now.getFullYear(), now.getMonth(), 0);
+      }
+
+      var params = {
+        dateFrom: formatDate(dateFrom),
+        dateTo: formatDate(dateTo),
+        includeStatus: circulationStatus === 'incomplete' ? 'incomplete' : 'all'
+      };
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          if (result.success) {
+            var resultDiv = document.getElementById('circulation-result');
+            var resultText = document.getElementById('circulation-result-text');
+            var resultLink = document.getElementById('circulation-result-link');
+
+            resultText.textContent = '✅ ' + result.rows + '件を生成しました（' + result.period.from + ' 〜 ' + result.period.to + '）';
+            resultLink.href = result.sheetUrl;
+            resultDiv.style.display = 'block';
+
+            App.showToast('回覧表を生成しました', 'success');
+          } else {
+            App.showToast(result.error || '生成に失敗しました', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('生成に失敗しました', 'error');
+          console.error(error);
+        })
+        .generateCirculation(params);
+    }
+
+    /**
+     * 日付をyyyy-MM-dd形式にフォーマット
+     */
+    function formatDate(date) {
+      var y = date.getFullYear();
+      var m = ('0' + (date.getMonth() + 1)).slice(-2);
+      var d = ('0' + date.getDate()).slice(-2);
+      return y + '-' + m + '-' + d;
+    }
+
     return {
       init: init,
       runDiagnosis: runDiagnosis,
       testApiConnectivity: testApiConnectivity,
       clearCache: clearCache,
-      showIdCounters: showIdCounters
+      showIdCounters: showIdCounters,
+      selectPeriod: selectPeriod,
+      selectStatus: selectStatus,
+      generateCirculation: generateCirculation
     };
   })();
 

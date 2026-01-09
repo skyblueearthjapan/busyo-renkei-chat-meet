@@ -792,3 +792,257 @@ function clearAllCache() {
 function getCurrentIdCounters() {
   return IdService.getCurrentIds();
 }
+
+// ============================================
+// Sprint 3: お気に入り・最近・推奨
+// ============================================
+
+/**
+ * お気に入り一覧を取得
+ * @returns {Object} { success, data }
+ */
+function getFavorites() {
+  try {
+    var favorites = FavoritesService.getFavorites();
+    return { success: true, data: favorites };
+  } catch (e) {
+    console.error('getFavorites エラー:', e);
+    return { success: false, error: 'お気に入りの取得に失敗しました。' };
+  }
+}
+
+/**
+ * お気に入りを設定/解除
+ * @param {string} deptId - 部署ID
+ * @param {boolean} enabled - true: 追加, false: 削除
+ * @returns {Object} { success, favorites }
+ */
+function setFavorite(deptId, enabled) {
+  try {
+    var result = FavoritesService.setFavorite(deptId, enabled);
+    if (result.ok) {
+      return { success: true, favorites: result.favorites };
+    } else {
+      return { success: false, error: result.error || '設定に失敗しました。' };
+    }
+  } catch (e) {
+    console.error('setFavorite エラー:', e);
+    return { success: false, error: 'お気に入りの設定に失敗しました。' };
+  }
+}
+
+/**
+ * 最近使った部署一覧を取得
+ * @returns {Object} { success, data }
+ */
+function listRecents() {
+  try {
+    var recents = FavoritesService.listRecents();
+    return { success: true, data: recents };
+  } catch (e) {
+    console.error('listRecents エラー:', e);
+    return { success: false, error: '最近の取得に失敗しました。' };
+  }
+}
+
+/**
+ * 推奨部署一覧を取得
+ * @param {string} fromDeptId - 発信部署ID（任意）
+ * @returns {Object} { success, data }
+ */
+function getRecommended(fromDeptId) {
+  try {
+    var recommended = FavoritesService.getRecommended(fromDeptId || '');
+    return { success: true, data: recommended };
+  } catch (e) {
+    console.error('getRecommended エラー:', e);
+    return { success: false, error: '推奨の取得に失敗しました。' };
+  }
+}
+
+/**
+ * Home用の統合データを取得
+ * @returns {Object} { success, data: { favorites, recents, recommended } }
+ */
+function getHomeData() {
+  try {
+    var favorites = FavoritesService.getFavorites();
+    var recents = FavoritesService.listRecents();
+    var recommended = FavoritesService.getRecommended('');
+
+    return {
+      success: true,
+      data: {
+        favorites: favorites,
+        recents: recents,
+        recommended: recommended
+      }
+    };
+  } catch (e) {
+    console.error('getHomeData エラー:', e);
+    return { success: false, error: 'データの取得に失敗しました。' };
+  }
+}
+
+// ============================================
+// Sprint 3: 回覧表生成
+// ============================================
+
+/**
+ * 回覧表を生成
+ * @param {Object} params - { dateFrom, dateTo, includeStatus, outputMode }
+ * @returns {Object} { success, rows, sheetUrl }
+ */
+function generateCirculation(params) {
+  try {
+    params = params || {};
+
+    // 日付パース
+    var dateFrom = params.dateFrom ? new Date(params.dateFrom) : null;
+    var dateTo = params.dateTo ? new Date(params.dateTo) : null;
+
+    // デフォルト: 今週
+    if (!dateFrom) {
+      var now = new Date();
+      var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      var dayOfWeek = today.getDay();
+      dateFrom = new Date(today.getTime() - dayOfWeek * 24 * 60 * 60 * 1000);
+    }
+    if (!dateTo) {
+      dateTo = new Date();
+    }
+
+    // メモを取得
+    var filters = {
+      dateFrom: Utilities.formatDate(dateFrom, Config.TIMEZONE, 'yyyy-MM-dd'),
+      dateTo: Utilities.formatDate(dateTo, Config.TIMEZONE, 'yyyy-MM-dd'),
+      limit: 500
+    };
+
+    // ステータスフィルタ
+    if (params.includeStatus === 'incomplete') {
+      filters.incomplete = true;
+    }
+
+    var memos = SheetService.listMemos(filters);
+
+    // 並び替え: 未完→完了、期限切れ→通常、日時降順
+    memos.sort(function(a, b) {
+      var scoreA = scoreMemo(a);
+      var scoreB = scoreMemo(b);
+      if (scoreA !== scoreB) return scoreA - scoreB;
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+
+    // Circulation_Viewシートに出力
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var viewSheet = ss.getSheetByName('Circulation_View');
+
+    if (!viewSheet) {
+      viewSheet = ss.insertSheet('Circulation_View');
+    }
+
+    // ヘッダー
+    var header = ['日時', '部署', '種別', '要点', '決定事項/対応', '担当', '期限', '結果', 'ステータス', '添付'];
+
+    // データ行を準備
+    var rows = memos.map(function(m) {
+      return [
+        m.created_at || '',
+        (m.from_dept_name || '?') + ' → ' + (m.to_dept_name || '?'),
+        m.issue_type || '',
+        m.summary || '',
+        '', // 決定事項は詳細取得が必要（簡易版では空）
+        '', // 担当
+        '', // 期限
+        m.outcome || '',
+        m.status || '',
+        '' // 添付
+      ];
+    });
+
+    // 詳細データを取得して埋める
+    rows = memos.map(function(m) {
+      var detail = SheetService.getMemoDetail(m.memo_id);
+      if (!detail) detail = m;
+
+      return [
+        m.created_at || '',
+        (m.from_dept_name || '?') + ' → ' + (m.to_dept_name || '?'),
+        m.issue_type || '',
+        m.summary || '',
+        detail.decisions || '',
+        detail.owner || '',
+        detail.due_date || '',
+        m.outcome || '',
+        m.status || '',
+        detail.attachments || ''
+      ];
+    });
+
+    // シートをクリアして書き込み
+    viewSheet.clear();
+    viewSheet.getRange(1, 1, 1, header.length).setValues([header]);
+    viewSheet.getRange(1, 1, 1, header.length).setFontWeight('bold');
+    viewSheet.getRange(1, 1, 1, header.length).setBackground('#D9F0FF');
+
+    if (rows.length > 0) {
+      viewSheet.getRange(2, 1, rows.length, header.length).setValues(rows);
+    }
+
+    // 列幅調整
+    viewSheet.setColumnWidth(1, 140); // 日時
+    viewSheet.setColumnWidth(2, 180); // 部署
+    viewSheet.setColumnWidth(3, 100); // 種別
+    viewSheet.setColumnWidth(4, 250); // 要点
+    viewSheet.setColumnWidth(5, 300); // 決定事項
+    viewSheet.setColumnWidth(6, 100); // 担当
+    viewSheet.setColumnWidth(7, 100); // 期限
+    viewSheet.setColumnWidth(8, 80);  // 結果
+    viewSheet.setColumnWidth(9, 100); // ステータス
+    viewSheet.setColumnWidth(10, 200); // 添付
+
+    // ログ記録
+    LogService.logEvent({
+      type: 'GenerateCirculation',
+      channel: 'System',
+      status: 'Done',
+      note: Utilities.formatDate(dateFrom, Config.TIMEZONE, 'yyyy-MM-dd') + '..' +
+            Utilities.formatDate(dateTo, Config.TIMEZONE, 'yyyy-MM-dd') +
+            ' (' + rows.length + '件)'
+    });
+
+    return {
+      success: true,
+      rows: rows.length,
+      sheetUrl: ss.getUrl() + '#gid=' + viewSheet.getSheetId(),
+      period: {
+        from: Utilities.formatDate(dateFrom, Config.TIMEZONE, 'yyyy-MM-dd'),
+        to: Utilities.formatDate(dateTo, Config.TIMEZONE, 'yyyy-MM-dd')
+      }
+    };
+
+  } catch (e) {
+    console.error('generateCirculation エラー:', e);
+    return { success: false, error: '回覧表の生成に失敗しました: ' + e.message };
+  }
+}
+
+/**
+ * メモのスコア計算（並び替え用）
+ * 未完を上、期限切れをさらに上
+ */
+function scoreMemo(m) {
+  var isDone = (m.status === 'Done' || m.status === 'Canceled');
+  var overdue = false;
+
+  if (m.due_date) {
+    var dueDate = new Date(m.due_date);
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    overdue = dueDate < today && !isDone;
+  }
+
+  return (isDone ? 2 : 0) + (overdue ? -1 : 0);
+}
+

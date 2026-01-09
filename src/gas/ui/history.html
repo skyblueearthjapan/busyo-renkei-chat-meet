@@ -29,10 +29,18 @@
         <h2 class="page-title">履歴</h2>
       </div>
 
+      <!-- Sprint 3: ビューモード切替 -->
+      <div class="view-mode-toggle" style="display:flex; gap:8px; margin-bottom:12px; align-items:center;">
+        <span style="font-size:0.85rem; color:#666;">表示:</span>
+        <button class="chip active" data-view="simple" onclick="History.setViewMode('simple')">📱 かんたん</button>
+        <button class="chip" data-view="detail" onclick="History.setViewMode('detail')">🖥️ くわしく</button>
+      </div>
+
       <!-- プリセットフィルタ -->
       <div class="filter-chips" style="margin-bottom:12px;">
         <button class="chip active" data-preset="all" onclick="History.applyPreset('all')">すべて</button>
         <button class="chip" data-preset="incomplete" onclick="History.applyPreset('incomplete')">未完了</button>
+        <button class="chip" data-preset="overdue" onclick="History.applyPreset('overdue')">⚠️ 期限切れ</button>
         <button class="chip" data-preset="today" onclick="History.applyPreset('today')">今日</button>
         <button class="chip" data-preset="week" onclick="History.applyPreset('week')">今週</button>
         <button class="chip" data-preset="mine" onclick="History.applyPreset('mine')">自分の作成</button>
@@ -91,6 +99,8 @@
    */
   var History = (function() {
     var currentPreset = 'all';
+    var currentViewMode = 'simple'; // 'simple' or 'detail'
+    var cachedMemos = []; // 再描画用にキャッシュ
 
     /**
      * 初期化
@@ -182,6 +192,28 @@
     }
 
     /**
+     * Sprint 3: ビューモード切替
+     */
+    function setViewMode(mode) {
+      currentViewMode = mode;
+
+      // チップのアクティブ状態を更新
+      var viewChips = document.querySelectorAll('.view-mode-toggle .chip');
+      viewChips.forEach(function(chip) {
+        if (chip.getAttribute('data-view') === mode) {
+          chip.classList.add('active');
+        } else {
+          chip.classList.remove('active');
+        }
+      });
+
+      // キャッシュから再描画（サーバー呼び出しなし）
+      if (cachedMemos.length > 0) {
+        renderMemoList(cachedMemos);
+      }
+    }
+
+    /**
      * メモ一覧を読み込み
      */
     function loadMemos() {
@@ -197,6 +229,8 @@
       // プリセット条件を追加
       if (currentPreset === 'incomplete') {
         filters.incomplete = true;
+      } else if (currentPreset === 'overdue') {
+        filters.overdue = true;
       } else if (currentPreset === 'today') {
         filters.dateRange = 'today';
       } else if (currentPreset === 'week') {
@@ -231,6 +265,9 @@
       var container = document.getElementById('memo-list');
       if (!container) return;
 
+      // キャッシュに保存
+      cachedMemos = memos || [];
+
       if (!memos || memos.length === 0) {
         container.innerHTML = '<div class="empty-state">' +
           '<div class="empty-icon">📋</div>' +
@@ -240,21 +277,122 @@
       }
 
       container.innerHTML = memos.map(function(memo) {
-        var statusClass = App.getStatusClass(memo.status);
-        return '<div class="memo-card" onclick="History.openDetail(\'' + App.escapeHtml(memo.memo_id) + '\')">' +
-          '<div class="memo-header">' +
-            '<span class="memo-date">' + App.formatDate(memo.created_at) + '</span>' +
-            '<span class="status-badge ' + statusClass + '">' + App.escapeHtml(memo.status) + '</span>' +
-          '</div>' +
-          '<div class="memo-route">' +
-            App.escapeHtml(memo.from_dept_name || '?') + ' → ' + App.escapeHtml(memo.to_dept_name || '?') +
-          '</div>' +
-          '<div class="memo-summary">' + App.escapeHtml(memo.summary || '') + '</div>' +
-          '<div class="memo-footer">' +
-            '<span class="memo-type">' + App.escapeHtml(memo.issue_type || '') + '</span>' +
-          '</div>' +
-        '</div>';
+        return currentViewMode === 'simple'
+          ? renderSimpleCard(memo)
+          : renderDetailCard(memo);
       }).join('');
+    }
+
+    /**
+     * Sprint 3: かんたん表示（現場向け）
+     * 日時・部署・種別・要点・ステータス
+     */
+    function renderSimpleCard(memo) {
+      var statusClass = App.getStatusClass(memo.status);
+      var overdueHtml = isOverdue(memo)
+        ? '<span class="overdue-badge" style="background:#dc3545;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:6px;">⚠️ 期限切れ</span>'
+        : '';
+
+      return '<div class="memo-card" onclick="History.openDetail(\'' + App.escapeHtml(memo.memo_id) + '\')">' +
+        '<div class="memo-header">' +
+          '<span class="memo-date">' + App.formatDate(memo.created_at) + '</span>' +
+          '<span class="status-badge ' + statusClass + '">' + App.escapeHtml(memo.status) + '</span>' +
+          overdueHtml +
+        '</div>' +
+        '<div class="memo-route">' +
+          App.escapeHtml(memo.from_dept_name || '?') + ' → ' + App.escapeHtml(memo.to_dept_name || '?') +
+        '</div>' +
+        '<div class="memo-summary">' + App.escapeHtml(memo.summary || '') + '</div>' +
+        '<div class="memo-footer">' +
+          '<span class="memo-type">' + App.escapeHtml(memo.issue_type || '') + '</span>' +
+        '</div>' +
+      '</div>';
+    }
+
+    /**
+     * Sprint 3: くわしく表示（事務所向け）
+     * 担当・期限・結果・タグ・添付 も表示
+     */
+    function renderDetailCard(memo) {
+      var statusClass = App.getStatusClass(memo.status);
+      var overdueHtml = isOverdue(memo)
+        ? '<span class="overdue-badge" style="background:#dc3545;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:6px;">⚠️ 期限切れ</span>'
+        : '';
+
+      // 期限フォーマット
+      var dueDateStr = memo.due_date ? formatDueDate(memo.due_date) : '—';
+      // タグ
+      var tagsHtml = memo.tags ? '<span style="color:#666;font-size:0.8rem;">🏷️ ' + App.escapeHtml(memo.tags) + '</span>' : '';
+      // 添付
+      var attachHtml = memo.attachments ? '<span style="color:#666;font-size:0.8rem;">📎 あり</span>' : '';
+
+      return '<div class="memo-card memo-card-detail" onclick="History.openDetail(\'' + App.escapeHtml(memo.memo_id) + '\')">' +
+        '<div class="memo-header">' +
+          '<span class="memo-date">' + App.formatDate(memo.created_at) + '</span>' +
+          '<span class="status-badge ' + statusClass + '">' + App.escapeHtml(memo.status) + '</span>' +
+          overdueHtml +
+        '</div>' +
+        '<div class="memo-route">' +
+          App.escapeHtml(memo.from_dept_name || '?') + ' → ' + App.escapeHtml(memo.to_dept_name || '?') +
+        '</div>' +
+        '<div class="memo-summary">' + App.escapeHtml(memo.summary || '') + '</div>' +
+        '<div class="memo-detail-row" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;font-size:0.85rem;">' +
+          '<span style="color:#666;">📅 期限: ' + dueDateStr + '</span>' +
+          '<span style="color:#666;">👤 担当: ' + App.escapeHtml(memo.assignee || '—') + '</span>' +
+        '</div>' +
+        (memo.result ? '<div class="memo-result" style="margin-top:6px;font-size:0.85rem;color:#444;">📝 結果: ' + App.escapeHtml(memo.result) + '</div>' : '') +
+        '<div class="memo-footer" style="display:flex;gap:12px;align-items:center;">' +
+          '<span class="memo-type">' + App.escapeHtml(memo.issue_type || '') + '</span>' +
+          tagsHtml +
+          attachHtml +
+        '</div>' +
+      '</div>';
+    }
+
+    /**
+     * Sprint 3: 期限切れ判定
+     */
+    function isOverdue(memo) {
+      // 完了/キャンセル済みは期限切れとしない
+      if (memo.status === 'Done' || memo.status === 'Canceled') {
+        return false;
+      }
+      if (!memo.due_date) {
+        return false;
+      }
+      try {
+        var dueDate = new Date(memo.due_date);
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return dueDate < today;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    /**
+     * 期限日フォーマット
+     */
+    function formatDueDate(dateStr) {
+      try {
+        var d = new Date(dateStr);
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        var diff = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
+        var dateText = (d.getMonth() + 1) + '/' + d.getDate();
+        if (diff < 0) {
+          return dateText + ' (' + Math.abs(diff) + '日超過)';
+        } else if (diff === 0) {
+          return dateText + ' (今日)';
+        } else if (diff === 1) {
+          return dateText + ' (明日)';
+        } else if (diff <= 7) {
+          return dateText + ' (あと' + diff + '日)';
+        }
+        return dateText;
+      } catch (e) {
+        return dateStr;
+      }
     }
 
     /**
@@ -267,7 +405,8 @@
     return {
       init: init,
       openDetail: openDetail,
-      applyPreset: applyPreset
+      applyPreset: applyPreset,
+      setViewMode: setViewMode
     };
   })();
 
