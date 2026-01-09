@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>部署クイック連絡</title>
+  <?!= include('ui/styles.css'); ?>
+</head>
+<body>
+  <!-- ローディングオーバーレイ -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p class="loading-text">読み込み中...</p>
+  </div>
+
+  <!-- トースト通知 -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- ヘッダー -->
+  <header class="app-header">
+    <h1 class="app-title">部署クイック連絡</h1>
+    <div id="user-info" class="user-info"></div>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main id="main-content" class="main-content">
+    <!-- 動的にページが挿入される -->
+  </main>
+
+  <!-- 下部タブナビゲーション -->
+  <nav class="tab-nav">
+    <button class="tab-btn active" data-page="home">
+      <span class="tab-icon">🏠</span>
+      <span class="tab-label">ホーム</span>
+    </button>
+    <button class="tab-btn" data-page="history">
+      <span class="tab-icon">📋</span>
+      <span class="tab-label">履歴</span>
+    </button>
+    <button class="tab-btn" data-page="memo">
+      <span class="tab-icon">📝</span>
+      <span class="tab-label">メモ</span>
+    </button>
+  </nav>
+
+  <!-- ページテンプレート: ホーム（部署一覧） -->
+  <template id="page-home">
+    <div class="page page-home">
+      <!-- 検索・フィルタ -->
+      <div class="search-section">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="search-input" class="search-input" placeholder="部署名で検索...">
+        </div>
+        <div class="filter-chips">
+          <button class="chip active" data-location="all">すべて</button>
+          <button class="chip" data-location="本社">本社</button>
+          <button class="chip" data-location="工場">工場</button>
+          <button class="chip" data-location="事務所">事務所</button>
+        </div>
+      </div>
+
+      <!-- 部署カードリスト -->
+      <div id="dept-list" class="dept-list">
+        <!-- 動的に部署カードが挿入される -->
+      </div>
+    </div>
+  </template>
+
+  <!-- ページテンプレート: メモ入力 -->
+  <template id="page-memo">
+    <div class="page page-memo">
+      <div class="page-header">
+        <button class="back-btn" onclick="App.navigateTo('home')">← 戻る</button>
+        <h2 class="page-title">メモを残す</h2>
+      </div>
+
+      <form id="memo-form" class="memo-form">
+        <input type="hidden" id="memo-event-id" name="relatedEventId">
+
+        <!-- 発信・宛先部署 -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">発信部署</label>
+            <select id="memo-from-dept" name="fromDeptId" class="form-select">
+              <option value="">選択してください</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">宛先部署</label>
+            <select id="memo-to-dept" name="toDeptId" class="form-select">
+              <option value="">選択してください</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 問い合わせ種別 -->
+        <div class="form-group">
+          <label class="form-label">問い合わせ種別 <span class="required">*</span></label>
+          <select id="memo-issue-type" name="issueType" class="form-select" required>
+            <option value="">選択してください</option>
+          </select>
+        </div>
+
+        <!-- 要点 -->
+        <div class="form-group">
+          <label class="form-label">要点（短く） <span class="required">*</span></label>
+          <input type="text" id="memo-summary" name="summary" class="form-input"
+                 placeholder="何についての連絡ですか？" required maxlength="100">
+        </div>
+
+        <!-- 決定事項/対応内容 -->
+        <div class="form-group">
+          <label class="form-label">決定事項/対応内容</label>
+          <textarea id="memo-decision" name="decision" class="form-textarea"
+                    placeholder="・箇条書きで記入&#10;・決まったこと、やること" rows="4"></textarea>
+        </div>
+
+        <!-- 担当者・期限 -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">担当者</label>
+            <input type="text" id="memo-assignee" name="assignee" class="form-input"
+                   placeholder="名前またはメール">
+          </div>
+          <div class="form-group">
+            <label class="form-label">期限</label>
+            <input type="date" id="memo-deadline" name="deadline" class="form-input">
+          </div>
+        </div>
+
+        <!-- 結果・優先度・ステータス -->
+        <div class="form-row three-col">
+          <div class="form-group">
+            <label class="form-label">結果</label>
+            <select id="memo-outcome" name="outcome" class="form-select">
+              <option value="">未選択</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">優先度</label>
+            <select id="memo-priority" name="priority" class="form-select">
+              <option value="中">中</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">ステータス</label>
+            <select id="memo-status" name="status" class="form-select">
+              <option value="Open">Open</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 添付リンク -->
+        <div class="form-group">
+          <label class="form-label">添付リンク（Drive URL等）</label>
+          <input type="url" id="memo-attachment" name="attachmentUrl" class="form-input"
+                 placeholder="https://drive.google.com/...">
+        </div>
+
+        <!-- タグ -->
+        <div class="form-group">
+          <label class="form-label">タグ（任意）</label>
+          <input type="text" id="memo-tags" name="tags" class="form-input"
+                 placeholder="カンマ区切りで入力">
+        </div>
+
+        <!-- 保存ボタン -->
+        <button type="submit" class="btn btn-primary btn-large btn-save">
+          保存する
+        </button>
+      </form>
+    </div>
+  </template>
+
+  <!-- ページテンプレート: 履歴一覧 -->
+  <template id="page-history">
+    <div class="page page-history">
+      <div class="page-header">
+        <h2 class="page-title">履歴</h2>
+      </div>
+
+      <!-- フィルタ -->
+      <div class="history-filters">
+        <select id="history-status-filter" class="filter-select">
+          <option value="">すべてのステータス</option>
+          <option value="Open">Open</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Done">Done</option>
+          <option value="Canceled">Canceled</option>
+        </select>
+        <select id="history-type-filter" class="filter-select">
+          <option value="">すべての種別</option>
+        </select>
+      </div>
+
+      <!-- メモリスト -->
+      <div id="memo-list" class="memo-list">
+        <!-- 動的にメモカードが挿入される -->
+      </div>
+    </div>
+  </template>
+
+  <!-- ページテンプレート: 履歴詳細 -->
+  <template id="page-detail">
+    <div class="page page-detail">
+      <div class="page-header">
+        <button class="back-btn" onclick="App.navigateTo('history')">← 戻る</button>
+        <h2 class="page-title">メモ詳細</h2>
+      </div>
+
+      <div id="memo-detail" class="memo-detail">
+        <!-- 動的にメモ詳細が挿入される -->
+      </div>
+    </div>
+  </template>
+
+  <!-- Meet作成後のモーダル -->
+  <div id="meet-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Meetを開始しました</h3>
+      </div>
+      <div class="modal-body">
+        <p class="meet-info">
+          <span class="meet-dept-name"></span> への連絡を開始しました。
+        </p>
+        <p class="meet-notice">新しいタブでMeetが開きます。</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="App.closeMeetModal()">閉じる</button>
+        <button class="btn btn-primary" onclick="App.openMemoFromMeet()">メモを書く</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 初期パラメータ -->
+  <script>
+    var INITIAL_PAGE = '<?= initialPage ?>';
+    var INITIAL_PARAMS = <?= initialParams ?>;
+  </script>
+
+  <?!= include('ui/app.js'); ?>
+</body>
+</html>
