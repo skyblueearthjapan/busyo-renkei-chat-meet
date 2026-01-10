@@ -89,10 +89,22 @@ body {
   padding: 16px;
   max-width: 600px;
   margin: 0 auto;
+  min-height: calc(100vh - 160px); /* ヘッダー + タブナビ分 */
 }
 
+/* ページ切り替え（SPA方式） */
 .page {
+  display: block;
   animation: fadeIn 0.3s ease;
+}
+
+.page.hidden {
+  display: none !important;
+}
+
+/* 汎用hidden */
+.hidden {
+  display: none !important;
 }
 
 @keyframes fadeIn {

@@ -31,9 +31,9 @@
     <section id="page-home" class="page">
       <!-- 上部タブ（全部/最近/お気に入り 順） -->
       <div class="home-tabs" style="display:flex; gap:8px; margin-bottom:16px;">
-        <button class="chip active" data-home-tab="all" onclick="Home.switchTab('all')">📋 全部</button>
-        <button class="chip" data-home-tab="recents" onclick="Home.switchTab('recents')">🕐 最近</button>
-        <button class="chip" data-home-tab="favorites" onclick="Home.switchTab('favorites')">⭐ お気に入り</button>
+        <button type="button" class="chip active" data-home-tab="all" onclick="Home.switchTab('all')">📋 全部</button>
+        <button type="button" class="chip" data-home-tab="recents" onclick="Home.switchTab('recents')">🕐 最近</button>
+        <button type="button" class="chip" data-home-tab="favorites" onclick="Home.switchTab('favorites')">⭐ お気に入り</button>
       </div>
 
       <!-- お気に入り/最近/推奨セクション -->
@@ -68,18 +68,18 @@
       <!-- ビューモード切替 -->
       <div class="view-mode-toggle" style="display:flex; gap:8px; margin-bottom:12px; align-items:center;">
         <span style="font-size:0.85rem; color:#666;">表示:</span>
-        <button class="chip active" data-view="simple" onclick="History.setViewMode('simple')">📱 かんたん</button>
-        <button class="chip" data-view="detail" onclick="History.setViewMode('detail')">🖥️ くわしく</button>
+        <button type="button" class="chip active" data-view="simple" onclick="History.setViewMode('simple')">📱 かんたん</button>
+        <button type="button" class="chip" data-view="detail" onclick="History.setViewMode('detail')">🖥️ くわしく</button>
       </div>
 
       <!-- プリセットフィルタ -->
       <div class="history-filter-chips filter-chips" style="margin-bottom:12px;">
-        <button class="chip active" data-preset="all" onclick="History.applyPreset('all')">すべて</button>
-        <button class="chip" data-preset="incomplete" onclick="History.applyPreset('incomplete')">未完了</button>
-        <button class="chip" data-preset="overdue" onclick="History.applyPreset('overdue')">⚠️ 期限切れ</button>
-        <button class="chip" data-preset="today" onclick="History.applyPreset('today')">今日</button>
-        <button class="chip" data-preset="week" onclick="History.applyPreset('week')">今週</button>
-        <button class="chip" data-preset="mine" onclick="History.applyPreset('mine')">自分の作成</button>
+        <button type="button" class="chip active" data-preset="all" onclick="History.applyPreset('all')">すべて</button>
+        <button type="button" class="chip" data-preset="incomplete" onclick="History.applyPreset('incomplete')">未完了</button>
+        <button type="button" class="chip" data-preset="overdue" onclick="History.applyPreset('overdue')">⚠️ 期限切れ</button>
+        <button type="button" class="chip" data-preset="today" onclick="History.applyPreset('today')">今日</button>
+        <button type="button" class="chip" data-preset="week" onclick="History.applyPreset('week')">今週</button>
+        <button type="button" class="chip" data-preset="mine" onclick="History.applyPreset('mine')">自分の作成</button>
       </div>
 
       <!-- 詳細フィルタ -->
@@ -213,31 +213,31 @@
         <div class="settings-card" style="margin-bottom:16px;">
           <h4 style="font-size:0.9rem; margin-bottom:8px;">📎 回覧表生成</h4>
           <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-            <button class="chip" data-period="week" onclick="Settings.selectPeriod('week')">今週</button>
-            <button class="chip" data-period="lastweek" onclick="Settings.selectPeriod('lastweek')">先週</button>
-            <button class="chip" data-period="month" onclick="Settings.selectPeriod('month')">今月</button>
-            <button class="chip" data-period="lastmonth" onclick="Settings.selectPeriod('lastmonth')">先月</button>
+            <button type="button" class="chip" data-period="week" onclick="Settings.selectPeriod('week')">今週</button>
+            <button type="button" class="chip" data-period="lastweek" onclick="Settings.selectPeriod('lastweek')">先週</button>
+            <button type="button" class="chip" data-period="month" onclick="Settings.selectPeriod('month')">今月</button>
+            <button type="button" class="chip" data-period="lastmonth" onclick="Settings.selectPeriod('lastmonth')">先月</button>
           </div>
           <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
-            <button class="chip active" data-status="all" onclick="Settings.selectStatus('all')">すべて</button>
-            <button class="chip" data-status="incomplete" onclick="Settings.selectStatus('incomplete')">未完了のみ</button>
+            <button type="button" class="chip active" data-status="all" onclick="Settings.selectStatus('all')">すべて</button>
+            <button type="button" class="chip" data-status="incomplete" onclick="Settings.selectStatus('incomplete')">未完了のみ</button>
           </div>
-          <button class="btn btn-primary" onclick="Settings.generateCirculation()">📊 回覧表を生成</button>
+          <button type="button" class="btn btn-primary" onclick="Settings.generateCirculation()">📊 回覧表を生成</button>
           <div id="circulation-result" style="margin-top:12px;"></div>
         </div>
 
         <!-- 診断 -->
         <div class="settings-card" style="margin-bottom:16px;">
           <h4 style="font-size:0.9rem; margin-bottom:8px;">🔍 診断</h4>
-          <button class="btn btn-secondary" onclick="Settings.runDiagnostics()">API接続テスト</button>
-          <button class="btn btn-secondary" onclick="Settings.validateDepts()">部署設定チェック</button>
+          <button type="button" class="btn btn-secondary" onclick="Settings.runDiagnostics()">API接続テスト</button>
+          <button type="button" class="btn btn-secondary" onclick="Settings.validateDepts()">部署設定チェック</button>
           <div id="diagnostics-result" style="margin-top:12px;"></div>
         </div>
 
         <!-- キャッシュクリア -->
         <div class="settings-card">
           <h4 style="font-size:0.9rem; margin-bottom:8px;">🗑️ キャッシュクリア</h4>
-          <button class="btn btn-warning" onclick="Settings.clearCache()">キャッシュをクリア</button>
+          <button type="button" class="btn btn-warning" onclick="Settings.clearCache()">キャッシュをクリア</button>
         </div>
       </div>
 
@@ -255,19 +255,19 @@
   <!-- 下部タブナビゲーション -->
   <!-- ============================================ -->
   <nav class="tab-nav">
-    <button class="tab-btn active" data-page="home" onclick="App.showPage('home')">
+    <button type="button" class="tab-btn active" data-page="home" onclick="App.showPage('home')">
       <span class="tab-icon">🏠</span>
       <span class="tab-label">ホーム</span>
     </button>
-    <button class="tab-btn" data-page="history" onclick="App.showPage('history')">
+    <button type="button" class="tab-btn" data-page="history" onclick="App.showPage('history')">
       <span class="tab-icon">📋</span>
       <span class="tab-label">履歴</span>
     </button>
-    <button class="tab-btn" data-page="memo" onclick="App.showPage('memo')">
+    <button type="button" class="tab-btn" data-page="memo" onclick="App.showPage('memo')">
       <span class="tab-icon">📝</span>
       <span class="tab-label">メモ</span>
     </button>
-    <button class="tab-btn" data-page="settings" onclick="App.showPage('settings')">
+    <button type="button" class="tab-btn" data-page="settings" onclick="App.showPage('settings')">
       <span class="tab-icon">⚙️</span>
       <span class="tab-label">設定</span>
     </button>
