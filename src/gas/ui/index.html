@@ -1883,25 +1883,62 @@
     var adminDepts = [];  // 管理者用部署リスト（無効含む）
 
     function init() {
+      console.log('[Settings.init] 開始');
+      // ユーザー情報表示を「読み込み中」に設定
+      var userInfo = document.getElementById('settings-user-info');
+      if (userInfo) {
+        userInfo.textContent = 'ログインユーザー: 読み込み中...';
+      }
+
       // 設定データをロード
       google.script.run
         .withSuccessHandler(function(result) {
+          console.log('[Settings.init] success:', result);
           if (result && result.success) {
             settingsData = result;
-            populateSettings(result);
+            populateSettings(result.data || result);
+          } else {
+            console.error('[Settings.init] result.success=false:', result);
+            if (userInfo) {
+              userInfo.textContent = 'ログインユーザー: 読み込み失敗';
+            }
+            App.showToast('設定の読み込みに失敗しました', 'error');
           }
         })
         .withFailureHandler(function(error) {
-          console.error('Settings init error:', error);
+          console.error('[Settings.init] failure:', error);
+          if (userInfo) {
+            userInfo.textContent = 'ログインユーザー: エラー発生';
+          }
+          App.showToast('設定の読み込みでエラー: ' + (error.message || error), 'error');
         })
         .getSettingsBootstrap();
     }
 
     function populateSettings(data) {
+      console.log('[populateSettings] data:', data);
       // ユーザー情報
       var userInfo = document.getElementById('settings-user-info');
+      console.log('[populateSettings] userInfo element:', userInfo);
+      console.log('[populateSettings] data.user:', data.user);
       if (userInfo && data.user) {
         userInfo.textContent = 'ログインユーザー: ' + data.user.email + (data.user.isAdmin ? ' (管理者)' : '');
+        console.log('[populateSettings] isAdmin:', data.user.isAdmin);
+        // ★ 管理者ツールの表示/非表示をここでも設定
+        var adminTools = document.getElementById('admin-tools');
+        if (adminTools) {
+          if (data.user.isAdmin) {
+            console.log('[populateSettings] ★ 管理者ツールを表示');
+            adminTools.style.display = 'block';
+          } else {
+            console.log('[populateSettings] 管理者ツールを非表示');
+            adminTools.style.display = 'none';
+          }
+        } else {
+          console.warn('[populateSettings] admin-tools要素が見つかりません');
+        }
+      } else {
+        console.warn('[populateSettings] userInfo要素またはdata.userがありません');
       }
 
       // 個人設定

@@ -1292,22 +1292,74 @@ var DateRangeService = {
  * @returns {Object} { success, data }
  */
 function getSettingsBootstrap() {
+  console.log('[getSettingsBootstrap] 開始');
   try {
+    // Step 1: ユーザー情報取得
+    console.log('[getSettingsBootstrap] Step 1: getCurrentUserInfo');
     var user = LogService.getCurrentUserInfo();
-    user.isAdmin = AuthService.isAdmin();
+    console.log('[getSettingsBootstrap] user:', JSON.stringify(user));
 
-    return {
+    // Step 2: 管理者チェック
+    console.log('[getSettingsBootstrap] Step 2: isAdmin');
+    user.isAdmin = AuthService.isAdmin();
+    console.log('[getSettingsBootstrap] isAdmin:', user.isAdmin);
+
+    // Step 3: ユーザー設定取得
+    console.log('[getSettingsBootstrap] Step 3: getPreferences');
+    var userPrefs = {};
+    try {
+      userPrefs = UserPreferencesService.getPreferences();
+    } catch (prefErr) {
+      console.warn('[getSettingsBootstrap] userPrefs取得エラー:', prefErr);
+    }
+    console.log('[getSettingsBootstrap] userPrefs:', JSON.stringify(userPrefs));
+
+    // Step 4: 自動化設定取得
+    console.log('[getSettingsBootstrap] Step 4: getConfig');
+    var automationConfig = {};
+    try {
+      automationConfig = AutomationConfigService.getConfig();
+    } catch (autoErr) {
+      console.warn('[getSettingsBootstrap] automationConfig取得エラー:', autoErr);
+    }
+    console.log('[getSettingsBootstrap] automationConfig: OK');
+
+    // Step 5: Lookup取得
+    console.log('[getSettingsBootstrap] Step 5: getLookup');
+    var lookup = {};
+    try {
+      lookup = LookupService.getLookup();
+    } catch (lookupErr) {
+      console.warn('[getSettingsBootstrap] lookup取得エラー:', lookupErr);
+    }
+    console.log('[getSettingsBootstrap] lookup: OK');
+
+    // Step 6: トリガー一覧取得（管理者のみ）
+    console.log('[getSettingsBootstrap] Step 6: listTriggers');
+    var triggers = [];
+    if (user.isAdmin) {
+      try {
+        triggers = AutomationConfigService.listTriggers();
+      } catch (trigErr) {
+        console.warn('[getSettingsBootstrap] triggers取得エラー:', trigErr);
+      }
+    }
+    console.log('[getSettingsBootstrap] triggers count:', triggers.length);
+
+    var result = {
       success: true,
       data: {
         user: user,
-        userPrefs: UserPreferencesService.getPreferences(),
-        automationConfig: AutomationConfigService.getConfig(),
-        lookup: LookupService.getLookup(),
-        triggers: AuthService.isAdmin() ? AutomationConfigService.listTriggers() : []
+        userPrefs: userPrefs,
+        automationConfig: automationConfig,
+        lookup: lookup,
+        triggers: triggers
       }
     };
+    console.log('[getSettingsBootstrap] 完了 - success=true');
+    return result;
   } catch (e) {
-    console.error('getSettingsBootstrap エラー:', e);
+    console.error('[getSettingsBootstrap] エラー:', e.message, e.stack);
     return { success: false, error: e.message };
   }
 }
