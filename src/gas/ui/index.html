@@ -581,6 +581,20 @@
   <!-- 共通ユーティリティ（app.js統合版） -->
   <!-- ============================================ -->
   <script>
+  // ★ グローバルエラーハンドリング（デバッグ用）
+  window.onerror = function(message, source, lineno, colno, error) {
+    console.error('[GlobalError]', message, 'at', source, lineno + ':' + colno, error);
+    if (typeof App !== 'undefined' && App.showToast) {
+      App.showToast('エラー: ' + message, 'error');
+    }
+  };
+  window.addEventListener('unhandledrejection', function(event) {
+    console.error('[UnhandledRejection]', event.reason);
+    if (typeof App !== 'undefined' && App.showToast) {
+      App.showToast('非同期エラー: ' + (event.reason && event.reason.message || event.reason), 'error');
+    }
+  });
+
   /**
    * 部署クイック連絡ポータル - 統合SPA版
    * Phase A Hotfix + Sprint 3/4 対応
@@ -1056,21 +1070,32 @@
           e.preventDefault();
           e.stopPropagation();
           var deptId = starBtn.getAttribute('data-fav');
+          console.log('[Click] ★ お気に入り:', deptId);
           toggleFavorite(deptId, starBtn);
           return;
         }
 
         // Chat/Meet ボタンクリック
         var actionBtn = e.target.closest('[data-action]');
-        if (actionBtn && !actionBtn.disabled) {
+        if (actionBtn) {
           var action = actionBtn.getAttribute('data-action');
           var deptId = actionBtn.getAttribute('data-dept');
-          if (!deptId) return;
+          console.log('[Click] アクションボタン:', action, deptId);
 
-          if (action === 'chat') {
-            handleChat(deptId);
-          } else if (action === 'meet') {
-            handleMeet(deptId);
+          if (!deptId) {
+            console.warn('[Click] deptIdがありません');
+            return;
+          }
+
+          try {
+            if (action === 'chat') {
+              handleChat(deptId);
+            } else if (action === 'meet') {
+              handleMeet(deptId);
+            }
+          } catch (err) {
+            console.error('[Click] ハンドラでエラー:', err);
+            App.showToast('エラーが発生しました: ' + err.message, 'error');
           }
         }
       });
@@ -1249,14 +1274,18 @@
     }
 
     function handleChat(deptId) {
+      console.log('[handleChat] deptId:', deptId);
       var dept = App.getDeptById(deptId);
+      console.log('[handleChat] dept:', dept);
       if (!dept) {
         App.showToast('部署が見つかりません', 'error');
         return;
       }
 
       // ★ リンク方式：chat_url があれば直接開く（API不要）
+      console.log('[handleChat] chat_url:', dept.chat_url);
       if (dept.chat_url) {
+        console.log('[handleChat] Opening chat URL:', dept.chat_url);
         window.open(dept.chat_url, '_blank');
         App.showToast(dept.name + ' のChatを開きます', 'success');
         // ログ記録
@@ -1301,14 +1330,18 @@
     }
 
     function handleMeet(deptId) {
+      console.log('[handleMeet] deptId:', deptId);
       var dept = App.getDeptById(deptId);
+      console.log('[handleMeet] dept:', dept);
       if (!dept) {
         App.showToast('部署が見つかりません', 'error');
         return;
       }
 
       // ★ 常設URLがあれば最速で開く（API不要）
+      console.log('[handleMeet] meet_url:', dept.meet_url, 'meet_mode:', dept.meet_mode);
       if (dept.meet_url) {
+        console.log('[handleMeet] Opening meet URL:', dept.meet_url);
         window.open(dept.meet_url, '_blank');
         App.showToast(dept.name + ' のMeetを開きます', 'success');
         // ログ記録
@@ -1913,11 +1946,15 @@
 
     function checkAdmin() {
       var user = App.getUser();
+      console.log('[checkAdmin] user:', user);
       var adminTools = document.getElementById('admin-tools');
+      console.log('[checkAdmin] adminTools element:', adminTools);
       if (user && user.isAdmin) {
-        adminTools.style.display = 'block';
+        console.log('[checkAdmin] ★ 管理者です - admin-toolsを表示');
+        if (adminTools) adminTools.style.display = 'block';
       } else {
-        adminTools.style.display = 'none';
+        console.log('[checkAdmin] 一般ユーザーです - admin-toolsを非表示');
+        if (adminTools) adminTools.style.display = 'none';
       }
     }
 
@@ -2265,22 +2302,26 @@
     }
 
     function showDeptList() {
+      console.log('[showDeptList] 部署一覧を取得開始');
       App.showLoading('読み込んでいます...');
       google.script.run
         .withSuccessHandler(function(result) {
           App.hideLoading();
+          console.log('[showDeptList] result:', result);
           if (result.success) {
             adminDepts = result.data;  // 管理者用に保存（無効部署含む）
+            console.log('[showDeptList] adminDepts:', adminDepts.length, '件');
             renderAdminDeptList(result.data);
             document.getElementById('dept-list-modal').classList.remove('hidden');
           } else {
+            console.error('[showDeptList] エラー:', result.error);
             App.showToast('読み込みに失敗しました', 'error');
           }
         })
         .withFailureHandler(function(error) {
           App.hideLoading();
+          console.error('[showDeptList] 通信エラー:', error);
           App.showToast('読み込みに失敗しました', 'error');
-          console.error(error);
         })
         .listDepts({ includeDisabled: true });  // ★ 無効部署も取得
     }
@@ -2313,6 +2354,7 @@
     }
 
     function openDeptEdit(deptId) {
+      console.log('[openDeptEdit] deptId:', deptId);
       editingDeptId = deptId;
       // adminDeptsから検索（無効部署も含む）
       var dept = null;
@@ -2322,7 +2364,9 @@
           break;
         }
       }
+      console.log('[openDeptEdit] dept found:', dept);
       if (!dept) {
+        console.warn('[openDeptEdit] 部署が見つかりません。adminDepts:', adminDepts);
         App.showToast('部署が見つかりません', 'error');
         return;
       }
@@ -2371,7 +2415,11 @@
     }
 
     function saveDeptSettings() {
-      if (!editingDeptId) return;
+      console.log('[saveDeptSettings] editingDeptId:', editingDeptId);
+      if (!editingDeptId) {
+        console.warn('[saveDeptSettings] editingDeptIdがありません');
+        return;
+      }
 
       var patch = {
         name: document.getElementById('m_name').value.trim(),
@@ -2383,6 +2431,7 @@
         meet_mode: document.getElementById('m_meet_mode').value,
         meet_url: document.getElementById('m_meet_url').value.trim()
       };
+      console.log('[saveDeptSettings] patch:', patch);
 
       // バリデーション
       if (patch.chat_url && !patch.chat_url.startsWith('https://')) {
@@ -2399,6 +2448,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           App.hideLoading();
+          console.log('[saveDeptSettings] result:', result);
           if (result.success) {
             App.showToast('保存しました', 'success');
             closeDeptModal();
@@ -2406,13 +2456,14 @@
             // ★ 部署データを再読み込み（Home画面のリストも更新）
             App.loadDepts();
           } else {
+            console.error('[saveDeptSettings] エラー:', result.error);
             App.showToast(result.error || '保存に失敗しました', 'error');
           }
         })
         .withFailureHandler(function(error) {
           App.hideLoading();
+          console.error('[saveDeptSettings] 通信エラー:', error);
           App.showToast('保存に失敗しました。入力内容を確認してください', 'error');
-          console.error(error);
         })
         .updateDeptSettings(editingDeptId, patch);
     }
