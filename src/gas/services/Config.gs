@@ -10,12 +10,16 @@ var Config = {
   SHEET_LOG: 'Interaction_Log',
   SHEET_MEMO: 'Session_Memos',
   SHEET_RULES: 'Connection_Rules',
+  SHEET_CIRCULATION_CONFIG: 'Circulation_Config',
 
   // タイムゾーン
   TIMEZONE: 'Asia/Tokyo',
 
   // キャッシュ有効期間（秒）
   CACHE_TTL: 300, // 5分
+
+  // 管理者メールアドレス（カンマ区切り）
+  ADMIN_EMAILS: '',  // 例: 'admin1@example.com,admin2@example.com'
 
   // ID採番プロパティキー
   PROP_NEXT_EVENT_ID: 'nextEventId',
@@ -57,6 +61,7 @@ var Config = {
     OUTCOME: 'Outcome',
     PRIORITY: 'Priority',
     STATUS: 'Status',
-    CHANNEL: 'Channel'
+    CHANNEL: 'Channel',
+    SITE: 'Site'
   }
 };

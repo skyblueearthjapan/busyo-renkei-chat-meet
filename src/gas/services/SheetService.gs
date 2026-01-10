@@ -241,6 +241,55 @@ var SheetService = (function() {
     cache.remove(DEPT_CACHE_KEY);
   }
 
+  /**
+   * 部署マスタの行を更新（管理者機能）
+   * @param {string} deptId - 部署ID
+   * @param {Object} patch - 更新フィールド
+   */
+  function updateDeptRow(deptId, patch) {
+    var sheet = getSheet(Config.SHEET_DEPT);
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var colMap = buildColumnMap(headers);
+
+    // フィールド名→ヘッダー名のマッピング
+    var fieldToHeader = {
+      'name': '部署表示名',
+      'site': '拠点',
+      'order': '表示順',
+      'enabled': '有効(Y/N)',
+      'chat_url': 'Chat URL (任意)',
+      'notify_space_id': '通知先ChatスペースID',
+      'meet_mode': 'Meet利用',
+      'meet_url': '常設Meet URL (任意)',
+      'note': '説明/メモ'
+    };
+
+    var deptIdCol = colMap['dept_id'];
+    if (deptIdCol === undefined) {
+      throw new Error('Dept_MasterにdeptIdカラムがありません。');
+    }
+
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][deptIdCol] === deptId) {
+        for (var field in patch) {
+          var headerName = fieldToHeader[field];
+          if (headerName && colMap[headerName] !== undefined) {
+            var colIndex = colMap[headerName];
+            var value = patch[field];
+            // enabled は Y/N に変換
+            if (field === 'enabled') {
+              value = value ? 'Y' : 'N';
+            }
+            sheet.getRange(i + 1, colIndex + 1).setValue(value);
+          }
+        }
+        return;
+      }
+    }
+    throw new Error('部署が見つかりません: ' + deptId);
+  }
+
   // ============================================
   // メモ関連
   // ============================================
@@ -526,6 +575,7 @@ var SheetService = (function() {
     getDeptById: getDeptById,
     getDeptNameMap: getDeptNameMap,
     clearDeptCache: clearDeptCache,
+    updateDeptRow: updateDeptRow,
     createMemo: createMemo,
     listMemos: listMemos,
     getMemoDetail: getMemoDetail,

@@ -281,12 +281,162 @@ var GoogleChatService = (function() {
     return postTextMessage(spaceId, text);
   }
 
+  /**
+   * 回覧表カードを構築（Sprint 4: 定期回覧用）
+   * @param {Object} data - { title, period, memos, portalUrl }
+   * @returns {Object} メッセージペイロード
+   */
+  function buildCirculationCard(data) {
+    var memos = data.memos || [];
+    var widgets = [];
+
+    // ヘッダー情報
+    widgets.push({
+      decoratedText: {
+        text: '<b>対象期間:</b> ' + escapeHtml(data.period || ''),
+        startIcon: { knownIcon: 'CLOCK' }
+      }
+    });
+
+    widgets.push({
+      decoratedText: {
+        text: '<b>件数:</b> ' + memos.length + '件',
+        startIcon: { knownIcon: 'DESCRIPTION' }
+      }
+    });
+
+    // メモ一覧（最大5件表示）
+    var displayMemos = memos.slice(0, 5);
+    if (displayMemos.length > 0) {
+      widgets.push({ divider: {} });
+      displayMemos.forEach(function(memo) {
+        widgets.push({
+          decoratedText: {
+            text: '<b>[' + escapeHtml(memo.status || '') + ']</b> ' + escapeHtml(memo.summary || ''),
+            bottomLabel: escapeHtml(memo.from_dept_name || '') + ' → ' + escapeHtml(memo.to_dept_name || ''),
+            wrapText: true
+          }
+        });
+      });
+      if (memos.length > 5) {
+        widgets.push({
+          decoratedText: {
+            text: '…他 ' + (memos.length - 5) + '件',
+            startIcon: { knownIcon: 'MULTIPLE_PEOPLE' }
+          }
+        });
+      }
+    }
+
+    // ボタン
+    var buttons = [];
+    if (data.portalUrl) {
+      buttons.push({
+        text: 'ポータルを開く',
+        onClick: { openLink: { url: data.portalUrl } },
+        color: { red: 0.686, green: 0.914, blue: 0.651, alpha: 1 }
+      });
+    }
+
+    if (buttons.length > 0) {
+      widgets.push({ buttonList: { buttons: buttons } });
+    }
+
+    var card = {
+      cardId: 'circulation_' + Date.now(),
+      card: {
+        header: {
+          title: data.title || '📋 部署連携回覧表',
+          subtitle: Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm'),
+          imageUrl: 'https://fonts.gstatic.com/s/i/googlematerialicons/list_alt/v6/24px.svg',
+          imageType: 'CIRCLE'
+        },
+        sections: [{ widgets: widgets }]
+      }
+    };
+
+    return { cardsV2: [card] };
+  }
+
+  /**
+   * 未完了リマインドカードを構築（Sprint 4: リマインダー用）
+   * @param {Object} data - { title, overdueCount, memos, portalUrl }
+   * @returns {Object} メッセージペイロード
+   */
+  function buildOverdueCard(data) {
+    var memos = data.memos || [];
+    var widgets = [];
+
+    // 警告メッセージ
+    widgets.push({
+      decoratedText: {
+        text: '<b>⚠️ 期限切れ:</b> ' + (data.overdueCount || memos.length) + '件',
+        startIcon: { knownIcon: 'CLOCK' }
+      }
+    });
+
+    // 期限切れメモ一覧（最大5件表示）
+    var displayMemos = memos.slice(0, 5);
+    if (displayMemos.length > 0) {
+      widgets.push({ divider: {} });
+      displayMemos.forEach(function(memo) {
+        var dueText = memo.due_date ? ' (期限: ' + escapeHtml(memo.due_date) + ')' : '';
+        widgets.push({
+          decoratedText: {
+            text: '<b>' + escapeHtml(memo.summary || '') + '</b>' + dueText,
+            bottomLabel: escapeHtml(memo.from_dept_name || '') + ' → ' + escapeHtml(memo.to_dept_name || ''),
+            wrapText: true
+          }
+        });
+      });
+      if (memos.length > 5) {
+        widgets.push({
+          decoratedText: {
+            text: '…他 ' + (memos.length - 5) + '件',
+            startIcon: { knownIcon: 'MULTIPLE_PEOPLE' }
+          }
+        });
+      }
+    }
+
+    // ボタン
+    var buttons = [];
+    if (data.portalUrl) {
+      buttons.push({
+        text: 'ポータルで確認',
+        onClick: { openLink: { url: data.portalUrl } },
+        color: { red: 1, green: 0.8, blue: 0.6, alpha: 1 }
+      });
+    }
+
+    if (buttons.length > 0) {
+      widgets.push({ buttonList: { buttons: buttons } });
+    }
+
+    var card = {
+      cardId: 'overdue_' + Date.now(),
+      card: {
+        header: {
+          title: data.title || '⏰ 未完了タスクリマインド',
+          subtitle: Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm'),
+          imageUrl: 'https://fonts.gstatic.com/s/i/googlematerialicons/warning/v6/24px.svg',
+          imageType: 'CIRCLE'
+        },
+        sections: [{ widgets: widgets }]
+      }
+    };
+
+    return { cardsV2: [card] };
+  }
+
   // 公開API
   return {
     postTextMessage: postTextMessage,
     postMeetNotification: postMeetNotification,
     postContactStartNotification: postContactStartNotification,
     postToSpace: postToSpace,
-    buildIncomingCallCard: buildIncomingCallCard
+    buildIncomingCallCard: buildIncomingCallCard,
+    buildCirculationCard: buildCirculationCard,
+    buildOverdueCard: buildOverdueCard
   };
 })();

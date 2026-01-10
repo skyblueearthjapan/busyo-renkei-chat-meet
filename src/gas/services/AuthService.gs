@@ -87,19 +87,43 @@ var AuthService = (function() {
 
   /**
    * 管理者かどうか確認
-   * スクリプトプロパティの 'adminEmails' から判定
+   * Config.ADMIN_EMAILS またはスクリプトプロパティの 'adminEmails' から判定
    * @returns {boolean} 管理者かどうか
    */
   function isAdmin() {
+    var email = Session.getActiveUser().getEmail();
+    if (!email) return false;
+
+    // Config.ADMIN_EMAILS をチェック
+    var configEmails = Config.ADMIN_EMAILS || '';
+    if (configEmails) {
+      var configList = configEmails.split(',').map(function(e) {
+        return e.trim().toLowerCase();
+      });
+      if (configList.indexOf(email.toLowerCase()) >= 0) return true;
+    }
+
+    // スクリプトプロパティ 'adminEmails' をチェック
     var props = PropertiesService.getScriptProperties();
     var adminEmailsStr = props.getProperty('adminEmails') || '';
-    if (!adminEmailsStr) return false;
+    if (adminEmailsStr) {
+      var adminEmails = adminEmailsStr.split(',').map(function(e) {
+        return e.trim().toLowerCase();
+      });
+      if (adminEmails.indexOf(email.toLowerCase()) >= 0) return true;
+    }
 
-    var adminEmails = adminEmailsStr.split(',').map(function(e) {
-      return e.trim().toLowerCase();
-    });
+    return false;
+  }
 
-    return isAllowedEmail(adminEmails);
+  /**
+   * 管理者であることを確認（非管理者は例外）
+   * @throws {Error} 管理者でない場合
+   */
+  function assertAdmin() {
+    if (!isAdmin()) {
+      throw new Error('この操作には管理者権限が必要です。');
+    }
   }
 
   // 公開API
@@ -108,6 +132,7 @@ var AuthService = (function() {
     isAllowedDomain: isAllowedDomain,
     assertAllowedUser: assertAllowedUser,
     isAllowedEmail: isAllowedEmail,
-    isAdmin: isAdmin
+    isAdmin: isAdmin,
+    assertAdmin: assertAdmin
   };
 })();

@@ -78,6 +78,9 @@ function getBootstrapData() {
     var depts = SheetService.getDeptList();
     var lookup = LookupService.getLookup();
 
+    // Sprint 4: 管理者フラグを追加
+    user.isAdmin = AuthService.isAdmin();
+
     return {
       user: user,
       depts: depts,
@@ -86,7 +89,7 @@ function getBootstrapData() {
   } catch (e) {
     console.error('getBootstrapData エラー:', e);
     return {
-      user: { email: '', name: 'Unknown' },
+      user: { email: '', name: 'Unknown', isAdmin: false },
       depts: [],
       lookup: LookupService.getLookup() // デフォルト値が返る
     };
@@ -1045,4 +1048,260 @@ function scoreMemo(m) {
 
   return (isDone ? 2 : 0) + (overdue ? -1 : 0);
 }
+
+// ============================================
+// Sprint 4: 管理者設定機能
+// ============================================
+
+/**
+ * 部署設定を更新（管理者のみ）
+ * @param {string} deptId - 部署ID
+ * @param {Object} patch - 更新データ
+ * @returns {Object} { success, error }
+ */
+function updateDeptSettings(deptId, patch) {
+  try {
+    // 管理者権限チェック
+    AuthService.assertAdmin();
+
+    // バリデーション
+    var allowedKeys = ['name', 'site', 'order', 'enabled', 'chat_url', 'notify_space_id', 'meet_mode', 'meet_url'];
+    for (var key in patch) {
+      if (allowedKeys.indexOf(key) < 0) {
+        return { success: false, error: '不正なフィールド: ' + key };
+      }
+    }
+
+    // chat_url のバリデーション
+    if (patch.chat_url && patch.chat_url.trim() && !patch.chat_url.startsWith('https://')) {
+      return { success: false, error: 'Chat URLはhttps://で始めてください。' };
+    }
+
+    // meet_url のバリデーション
+    if (patch.meet_mode === '常設URL' && patch.meet_url && !patch.meet_url.includes('meet.google.com')) {
+      return { success: false, error: 'Meet URLにmeet.google.comを含めてください。' };
+    }
+
+    // シート更新
+    SheetService.updateDeptRow(deptId, patch);
+
+    // キャッシュクリア
+    SheetService.clearDeptCache();
+
+    // ログ記録
+    LogService.logEvent({
+      type: 'AdminUpdateDept',
+      action: 'updateDeptSettings',
+      toDeptId: deptId,
+      status: 'Done',
+      note: JSON.stringify(patch)
+    });
+
+    return { success: true };
+
+  } catch (e) {
+    console.error('updateDeptSettings エラー:', e);
+    return {
+      success: false,
+      error: e.message || '部署設定の更新に失敗しました。'
+    };
+  }
+}
+
+// ============================================
+// Sprint 4: 自動化トリガー関数
+// ============================================
+
+/**
+ * 週次/月次回覧の自動生成（トリガー用）
+ */
+function runScheduledCirculation() {
+  try {
+    var cfg = getCirculationConfig();
+    if (!cfg || cfg.enabled !== 'Y') {
+      console.log('回覧自動生成: 無効化されています');
+      return;
+    }
+
+    // 日付範囲を計算
+    var range = DateRangeService.getRange(cfg.freq || 'WEEKLY');
+
+    // 回覧表を生成
+    var result = generateCirculation({
+      dateFrom: range.from,
+      dateTo: range.to,
+      includeStatus: cfg.includeStatus || 'all',
+      outputMode: 'Sheet'
+    });
+
+    if (!result.success) {
+      console.error('回覧生成失敗:', result.error);
+      return;
+    }
+
+    // Chat通知（設定されている場合）
+    if (cfg.notify_space_id) {
+      var card = GoogleChatService.buildCirculationCard({
+        title: '📎 問い合わせ回覧表を更新しました',
+        dateFrom: range.fromLabel,
+        dateTo: range.toLabel,
+        total: result.rows,
+        sheetUrl: result.sheetUrl
+      });
+
+      GoogleChatService.postToSpace(cfg.notify_space_id, card);
+    }
+
+    // ログ記録
+    LogService.logEvent({
+      type: 'ScheduledCirculation',
+      action: 'runScheduledCirculation',
+      status: 'Done',
+      note: range.fromLabel + '〜' + range.toLabel + ' (' + result.rows + '件)'
+    });
+
+  } catch (e) {
+    console.error('runScheduledCirculation エラー:', e);
+    LogService.logEvent({
+      type: 'Error',
+      action: 'runScheduledCirculation',
+      status: 'Canceled',
+      note: e.message
+    });
+  }
+}
+
+/**
+ * 未完リマインド（トリガー用）
+ */
+function runReminder() {
+  try {
+    var cfg = getReminderConfig();
+    if (!cfg || cfg.enabled !== 'Y') {
+      console.log('未完リマインド: 無効化されています');
+      return;
+    }
+
+    // 期限切れメモを取得
+    var overdue = SheetService.listMemos({ overdue: true, limit: 100 });
+
+    if (!overdue || overdue.length === 0) {
+      console.log('未完リマインド: 期限切れなし');
+      return;
+    }
+
+    // Chat通知（設定されている場合）
+    if (cfg.notify_space_id) {
+      var card = GoogleChatService.buildOverdueCard({
+        count: overdue.length,
+        items: overdue.slice(0, 10)
+      });
+
+      GoogleChatService.postToSpace(cfg.notify_space_id, card);
+    }
+
+    // ログ記録
+    LogService.logEvent({
+      type: 'Reminder',
+      action: 'runReminder',
+      status: 'Done',
+      note: '期限切れ=' + overdue.length + '件'
+    });
+
+  } catch (e) {
+    console.error('runReminder エラー:', e);
+    LogService.logEvent({
+      type: 'Error',
+      action: 'runReminder',
+      status: 'Canceled',
+      note: e.message
+    });
+  }
+}
+
+/**
+ * 回覧設定を取得
+ */
+function getCirculationConfig() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(Config.SHEET_CIRCULATION_CONFIG);
+    if (!sheet) return null;
+
+    var data = sheet.getDataRange().getValues();
+    if (data.length < 2) return null;
+
+    var headers = data[0];
+    var row = data[1];
+    var cfg = {};
+
+    for (var i = 0; i < headers.length; i++) {
+      cfg[headers[i]] = row[i];
+    }
+
+    return cfg;
+  } catch (e) {
+    console.error('getCirculationConfig エラー:', e);
+    return null;
+  }
+}
+
+/**
+ * リマインド設定を取得
+ */
+function getReminderConfig() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('Reminder_Config');
+    if (!sheet) return null;
+
+    var data = sheet.getDataRange().getValues();
+    if (data.length < 2) return null;
+
+    var headers = data[0];
+    var row = data[1];
+    var cfg = {};
+
+    for (var i = 0; i < headers.length; i++) {
+      cfg[headers[i]] = row[i];
+    }
+
+    return cfg;
+  } catch (e) {
+    console.error('getReminderConfig エラー:', e);
+    return null;
+  }
+}
+
+/**
+ * 日付範囲計算ヘルパー
+ */
+var DateRangeService = {
+  getRange: function(freq) {
+    var now = new Date();
+    var from, to, fromLabel, toLabel;
+
+    if (freq === 'WEEKLY') {
+      var dayOfWeek = now.getDay();
+      from = new Date(now.getTime() - (dayOfWeek + 7) * 86400000);
+      to = new Date(now.getTime() - (dayOfWeek + 1) * 86400000);
+    } else if (freq === 'MONTHLY') {
+      from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      to = new Date(now.getFullYear(), now.getMonth(), 0);
+    } else {
+      from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+      to = now;
+    }
+
+    fromLabel = Utilities.formatDate(from, Config.TIMEZONE, 'yyyy/MM/dd');
+    toLabel = Utilities.formatDate(to, Config.TIMEZONE, 'yyyy/MM/dd');
+
+    return {
+      from: Utilities.formatDate(from, Config.TIMEZONE, 'yyyy-MM-dd'),
+      to: Utilities.formatDate(to, Config.TIMEZONE, 'yyyy-MM-dd'),
+      fromLabel: fromLabel,
+      toLabel: toLabel
+    };
+  }
+};
 
