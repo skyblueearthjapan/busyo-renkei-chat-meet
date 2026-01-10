@@ -198,20 +198,170 @@
         <h2 class="page-title">設定</h2>
       </div>
 
-      <!-- 管理者ツール（管理者のみ表示） -->
+      <!-- 1) アプリ情報（全ユーザー） -->
+      <div class="settings-card" style="margin-bottom:16px;">
+        <h4 style="font-size:0.9rem; margin-bottom:8px;">ℹ️ アプリ情報</h4>
+        <p style="font-size:0.85rem; color:#333;">部署クイック連絡 v1.0</p>
+        <p style="font-size:0.8rem; color:#666;" id="settings-user-info">ログインユーザー: 読み込み中...</p>
+      </div>
+
+      <!-- 2) 個人設定（全ユーザー） -->
+      <div class="settings-card" style="margin-bottom:16px;">
+        <h4 style="font-size:0.9rem; margin-bottom:12px;">⚙️ 個人設定</h4>
+
+        <div class="form-group">
+          <label class="form-label">ホーム初期タブ</label>
+          <select id="pref-default-tab" class="form-select">
+            <option value="all">全部</option>
+            <option value="recents">最近</option>
+            <option value="favorites">お気に入り</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">デフォルト拠点フィルタ</label>
+          <select id="pref-default-site" class="form-select">
+            <option value="">すべて</option>
+            <!-- 動的に拠点が追加される -->
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">履歴の初期表示</label>
+          <select id="pref-history-mode" class="form-select">
+            <option value="simple">かんたん</option>
+            <option value="detail">くわしく</option>
+          </select>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:12px;">
+          <button type="button" class="btn btn-primary" onclick="Settings.saveUserPrefs()">保存</button>
+          <button type="button" class="btn btn-secondary" onclick="Settings.resetFavorites()">お気に入りを初期化</button>
+        </div>
+      </div>
+
+      <!-- 3) ヘルプ（全ユーザー） -->
+      <div class="settings-card" style="margin-bottom:16px;">
+        <h4 style="font-size:0.9rem; margin-bottom:8px;">❓ ヘルプ</h4>
+        <details style="margin-bottom:8px;">
+          <summary style="cursor:pointer; font-size:0.85rem; color:#333;">Meet通知が届かない時</summary>
+          <p style="font-size:0.8rem; color:#666; margin-top:4px; padding-left:12px;">
+            部署設定で「通知先ChatスペースID」が設定されているか確認してください。管理者に連絡してください。
+          </p>
+        </details>
+        <details style="margin-bottom:8px;">
+          <summary style="cursor:pointer; font-size:0.85rem; color:#333;">Chatが開けない時</summary>
+          <p style="font-size:0.8rem; color:#666; margin-top:4px; padding-left:12px;">
+            部署設定で「Chat URL」が設定されているか確認してください。
+          </p>
+        </details>
+        <details style="margin-bottom:8px;">
+          <summary style="cursor:pointer; font-size:0.85rem; color:#333;">メモが保存できない時</summary>
+          <p style="font-size:0.8rem; color:#666; margin-top:4px; padding-left:12px;">
+            必須項目（宛先部署・種別・要点）が入力されているか確認してください。
+          </p>
+        </details>
+        <button type="button" class="btn btn-secondary" style="margin-top:8px;" onclick="Settings.runSimpleDiagnostics()">簡易診断を実行</button>
+        <div id="simple-diagnostics-result" style="margin-top:8px;"></div>
+      </div>
+
+      <!-- 4) 管理者ツール（管理者のみ表示） -->
       <div id="admin-tools" class="admin-section" style="display:none;">
-        <h3 style="font-size:1rem; margin-bottom:12px;">🔧 管理者ツール</h3>
+        <h3 style="font-size:1rem; margin-bottom:12px; padding-top:16px; border-top:2px solid #E5E7EB;">🔧 管理者ツール</h3>
 
         <!-- 部署設定 -->
         <div class="settings-card" style="margin-bottom:16px;">
-          <h4 style="font-size:0.9rem; margin-bottom:8px;">📋 部署設定（リンク・表示）</h4>
+          <h4 style="font-size:0.9rem; margin-bottom:8px;">📋 部署設定</h4>
           <p style="font-size:0.8rem; color:#666; margin-bottom:8px;">部署のChat/Meet設定を編集できます</p>
-          <button class="btn btn-secondary" onclick="Settings.showDeptList()">部署一覧を表示</button>
+          <button type="button" class="btn btn-secondary" onclick="Settings.showDeptList()">部署一覧を表示</button>
         </div>
 
-        <!-- 回覧設定 -->
+        <!-- 自動化設定 -->
         <div class="settings-card" style="margin-bottom:16px;">
-          <h4 style="font-size:0.9rem; margin-bottom:8px;">📎 回覧表生成</h4>
+          <h4 style="font-size:0.9rem; margin-bottom:12px;">🤖 自動化設定</h4>
+
+          <!-- 回覧 -->
+          <div style="background:#F9FAFB; border-radius:8px; padding:12px; margin-bottom:12px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <input type="checkbox" id="auto-circ-enabled">
+              <label for="auto-circ-enabled" style="font-weight:500;">週次/月次回覧</label>
+            </div>
+            <div class="form-group" style="margin-bottom:8px;">
+              <label class="form-label" style="font-size:0.8rem;">頻度</label>
+              <select id="auto-circ-freq" class="form-select">
+                <option value="WEEKLY">毎週</option>
+                <option value="MONTHLY">毎月</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:8px;">
+              <label class="form-label" style="font-size:0.8rem;">曜日/日</label>
+              <select id="auto-circ-day" class="form-select">
+                <option value="1">月曜/1日</option>
+                <option value="2">火曜/2日</option>
+                <option value="3">水曜/3日</option>
+                <option value="4">木曜/4日</option>
+                <option value="5">金曜/5日</option>
+                <option value="6">土曜/6日</option>
+                <option value="7">日曜/7日</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:8px;">
+              <label class="form-label" style="font-size:0.8rem;">実行時刻</label>
+              <select id="auto-circ-hour" class="form-select">
+                <option value="8">8時</option>
+                <option value="9">9時</option>
+                <option value="10">10時</option>
+                <option value="17">17時</option>
+                <option value="18">18時</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:8px;">
+              <label class="form-label" style="font-size:0.8rem;">投稿先スペースID</label>
+              <input type="text" id="auto-circ-space" class="form-input" placeholder="spaces/...">
+            </div>
+            <button type="button" class="btn btn-secondary btn-small" onclick="Settings.runTestCirculation()">テスト実行</button>
+          </div>
+
+          <!-- リマインダー -->
+          <div style="background:#F9FAFB; border-radius:8px; padding:12px; margin-bottom:12px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <input type="checkbox" id="auto-remind-enabled">
+              <label for="auto-remind-enabled" style="font-weight:500;">未完リマインド</label>
+            </div>
+            <div class="form-group" style="margin-bottom:8px;">
+              <label class="form-label" style="font-size:0.8rem;">頻度</label>
+              <select id="auto-remind-freq" class="form-select">
+                <option value="DAILY">毎日</option>
+                <option value="WEEKLY">毎週</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:8px;">
+              <label class="form-label" style="font-size:0.8rem;">実行時刻</label>
+              <select id="auto-remind-hour" class="form-select">
+                <option value="8">8時</option>
+                <option value="9">9時</option>
+                <option value="10">10時</option>
+                <option value="17">17時</option>
+                <option value="18">18時</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:8px;">
+              <label class="form-label" style="font-size:0.8rem;">投稿先スペースID</label>
+              <input type="text" id="auto-remind-space" class="form-input" placeholder="spaces/...">
+            </div>
+            <button type="button" class="btn btn-secondary btn-small" onclick="Settings.runTestReminder()">テスト実行</button>
+          </div>
+
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn btn-primary" onclick="Settings.saveAutomationConfig()">自動化設定を保存</button>
+            <button type="button" class="btn btn-secondary" onclick="Settings.syncTriggers()">トリガー同期</button>
+          </div>
+          <div id="automation-result" style="margin-top:12px;"></div>
+        </div>
+
+        <!-- 回覧表生成（手動） -->
+        <div class="settings-card" style="margin-bottom:16px;">
+          <h4 style="font-size:0.9rem; margin-bottom:8px;">📎 回覧表生成（手動）</h4>
           <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
             <button type="button" class="chip" data-period="week" onclick="Settings.selectPeriod('week')">今週</button>
             <button type="button" class="chip" data-period="lastweek" onclick="Settings.selectPeriod('lastweek')">先週</button>
@@ -229,23 +379,21 @@
         <!-- 診断 -->
         <div class="settings-card" style="margin-bottom:16px;">
           <h4 style="font-size:0.9rem; margin-bottom:8px;">🔍 診断</h4>
-          <button type="button" class="btn btn-secondary" onclick="Settings.runDiagnostics()">API接続テスト</button>
-          <button type="button" class="btn btn-secondary" onclick="Settings.validateDepts()">部署設定チェック</button>
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <button type="button" class="btn btn-secondary" onclick="Settings.runDiagnostics()">API接続テスト</button>
+            <button type="button" class="btn btn-secondary" onclick="Settings.validateDepts()">部署設定チェック</button>
+          </div>
           <div id="diagnostics-result" style="margin-top:12px;"></div>
         </div>
 
-        <!-- キャッシュクリア -->
+        <!-- キャッシュ/保守 -->
         <div class="settings-card">
-          <h4 style="font-size:0.9rem; margin-bottom:8px;">🗑️ キャッシュクリア</h4>
-          <button type="button" class="btn btn-warning" onclick="Settings.clearCache()">キャッシュをクリア</button>
+          <h4 style="font-size:0.9rem; margin-bottom:8px;">🗑️ キャッシュ/保守</h4>
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <button type="button" class="btn btn-warning" onclick="Settings.clearCache()">キャッシュをクリア</button>
+            <button type="button" class="btn btn-secondary" onclick="Settings.reloadMaster()">マスタ再読込</button>
+          </div>
         </div>
-      </div>
-
-      <!-- 一般設定（全ユーザー向け） -->
-      <div class="settings-card" style="margin-top:16px;">
-        <h4 style="font-size:0.9rem; margin-bottom:8px;">ℹ️ アプリ情報</h4>
-        <p style="font-size:0.8rem; color:#666;">部署クイック連絡 v1.0</p>
-        <p style="font-size:0.8rem; color:#666;">Sprint 4 対応版</p>
       </div>
     </section>
 
@@ -669,6 +817,7 @@
     }
 
     function getDepts() { return state.depts; }
+    function setDepts(depts) { state.depts = depts || []; }
     function getLookup() { return state.lookup; }
     function getUser() { return state.user; }
     function getFavorites() { return state.favorites; }
@@ -721,6 +870,7 @@
       getStatusClass: getStatusClass,
       debounce: debounce,
       getDepts: getDepts,
+      setDepts: setDepts,
       getLookup: getLookup,
       getUser: getUser,
       getFavorites: getFavorites,
@@ -1568,9 +1718,76 @@
     var circulationPeriod = 'week';
     var circulationStatus = 'all';
     var editingDeptId = null;
+    var settingsData = null;
 
     function init() {
-      // 初期化処理
+      // 設定データをロード
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result && result.success) {
+            settingsData = result;
+            populateSettings(result);
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Settings init error:', error);
+        })
+        .getSettingsBootstrap();
+    }
+
+    function populateSettings(data) {
+      // ユーザー情報
+      var userInfo = document.getElementById('settings-user-info');
+      if (userInfo && data.user) {
+        userInfo.textContent = 'ログインユーザー: ' + data.user.email + (data.user.isAdmin ? ' (管理者)' : '');
+      }
+
+      // 個人設定
+      var prefs = data.userPrefs || {};
+      var tabSelect = document.getElementById('pref-default-tab');
+      var siteSelect = document.getElementById('pref-default-site');
+      var historySelect = document.getElementById('pref-history-mode');
+
+      if (tabSelect) tabSelect.value = prefs.defaultTopTab || 'all';
+      if (historySelect) historySelect.value = prefs.historyMode || 'simple';
+
+      // 拠点選択肢を動的追加
+      if (siteSelect && data.lookup && data.lookup.Site) {
+        siteSelect.innerHTML = '<option value="">すべて</option>';
+        data.lookup.Site.forEach(function(site) {
+          var opt = document.createElement('option');
+          opt.value = site;
+          opt.textContent = site;
+          if (prefs.defaultSite === site) opt.selected = true;
+          siteSelect.appendChild(opt);
+        });
+      }
+
+      // 自動化設定（管理者のみ）
+      if (data.automationConfig) {
+        var cfg = data.automationConfig;
+        var circEnabled = document.getElementById('auto-circ-enabled');
+        var circFreq = document.getElementById('auto-circ-freq');
+        var circDay = document.getElementById('auto-circ-day');
+        var circHour = document.getElementById('auto-circ-hour');
+        var circSpace = document.getElementById('auto-circ-space');
+
+        if (circEnabled) circEnabled.checked = (cfg.circulation_enabled === 'Y');
+        if (circFreq) circFreq.value = cfg.circulation_freq || 'WEEKLY';
+        if (circDay) circDay.value = cfg.circulation_day || '1';
+        if (circHour) circHour.value = cfg.circulation_hour || '9';
+        if (circSpace) circSpace.value = cfg.circulation_notify_space_id || '';
+
+        var remEnabled = document.getElementById('auto-remind-enabled');
+        var remFreq = document.getElementById('auto-remind-freq');
+        var remHour = document.getElementById('auto-remind-hour');
+        var remSpace = document.getElementById('auto-remind-space');
+
+        if (remEnabled) remEnabled.checked = (cfg.reminder_enabled === 'Y');
+        if (remFreq) remFreq.value = cfg.reminder_freq || 'DAILY';
+        if (remHour) remHour.value = cfg.reminder_hour || '9';
+        if (remSpace) remSpace.value = cfg.reminder_notify_space_id || '';
+      }
     }
 
     function checkAdmin() {
@@ -1581,6 +1798,214 @@
       } else {
         adminTools.style.display = 'none';
       }
+    }
+
+    // ====== 個人設定 ======
+    function saveUserPrefs() {
+      var patch = {
+        defaultTopTab: document.getElementById('pref-default-tab').value,
+        defaultSite: document.getElementById('pref-default-site').value,
+        historyMode: document.getElementById('pref-history-mode').value
+      };
+
+      App.showLoading('保存しています...');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          if (result && result.ok) {
+            App.showToast('個人設定を保存しました', 'success');
+          } else {
+            App.showToast(result.error || '保存に失敗しました', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('保存に失敗しました', 'error');
+          console.error(error);
+        })
+        .saveUserPrefs(patch);
+    }
+
+    function resetFavorites() {
+      if (!confirm('お気に入りを初期化しますか？')) return;
+
+      App.showLoading('初期化しています...');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          if (result && result.ok) {
+            App.showToast('お気に入りを初期化しました', 'success');
+          } else {
+            App.showToast(result.error || '初期化に失敗しました', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('初期化に失敗しました', 'error');
+          console.error(error);
+        })
+        .resetUserFavorites();
+    }
+
+    // ====== 自動化設定（管理者） ======
+    function saveAutomationConfig() {
+      var patch = {
+        circulation_enabled: document.getElementById('auto-circ-enabled').checked ? 'Y' : 'N',
+        circulation_freq: document.getElementById('auto-circ-freq').value,
+        circulation_day: document.getElementById('auto-circ-day').value,
+        circulation_hour: document.getElementById('auto-circ-hour').value,
+        circulation_notify_space_id: document.getElementById('auto-circ-space').value.trim(),
+        reminder_enabled: document.getElementById('auto-remind-enabled').checked ? 'Y' : 'N',
+        reminder_freq: document.getElementById('auto-remind-freq').value,
+        reminder_hour: document.getElementById('auto-remind-hour').value,
+        reminder_notify_space_id: document.getElementById('auto-remind-space').value.trim()
+      };
+
+      App.showLoading('保存しています...');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          var resultDiv = document.getElementById('automation-result');
+          if (result && result.ok) {
+            App.showToast('自動化設定を保存しました', 'success');
+            if (resultDiv) resultDiv.innerHTML = '<p style="color:#059669;">✅ 設定を保存しました</p>';
+          } else {
+            App.showToast(result.error || '保存に失敗しました', 'error');
+            if (resultDiv) resultDiv.innerHTML = '<p style="color:#DC2626;">❌ ' + (result.error || '保存に失敗しました') + '</p>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('保存に失敗しました', 'error');
+          console.error(error);
+        })
+        .updateAutomationConfig(patch);
+    }
+
+    function syncTriggers() {
+      App.showLoading('トリガーを同期しています...');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          var resultDiv = document.getElementById('automation-result');
+          if (result && result.ok) {
+            var triggers = result.triggers || [];
+            var msg = '✅ トリガーを同期しました（' + triggers.length + '件）';
+            App.showToast(msg, 'success');
+            if (resultDiv) {
+              var html = '<p style="color:#059669;">' + msg + '</p>';
+              if (triggers.length > 0) {
+                html += '<ul style="font-size:0.8rem; color:#666; margin-top:4px;">';
+                triggers.forEach(function(t) {
+                  html += '<li>' + t.handler + ' (' + t.freq + ' ' + t.hour + '時)</li>';
+                });
+                html += '</ul>';
+              }
+              resultDiv.innerHTML = html;
+            }
+          } else {
+            App.showToast(result.error || '同期に失敗しました', 'error');
+            if (resultDiv) resultDiv.innerHTML = '<p style="color:#DC2626;">❌ ' + (result.error || '同期に失敗しました') + '</p>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('同期に失敗しました', 'error');
+          console.error(error);
+        })
+        .syncAutomationTriggers();
+    }
+
+    function runTestCirculation() {
+      App.showLoading('テスト回覧を実行しています...');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          var resultDiv = document.getElementById('automation-result');
+          if (result && result.ok) {
+            App.showToast('テスト回覧を送信しました', 'success');
+            if (resultDiv) resultDiv.innerHTML = '<p style="color:#059669;">✅ テスト回覧を送信しました</p>';
+          } else {
+            App.showToast(result.error || '送信に失敗しました', 'error');
+            if (resultDiv) resultDiv.innerHTML = '<p style="color:#DC2626;">❌ ' + (result.error || '送信に失敗しました') + '</p>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('テスト実行に失敗しました', 'error');
+          console.error(error);
+        })
+        .runTestCirculation();
+    }
+
+    function runTestReminder() {
+      App.showLoading('テストリマインダーを実行しています...');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          var resultDiv = document.getElementById('automation-result');
+          if (result && result.ok) {
+            App.showToast('テストリマインダーを送信しました', 'success');
+            if (resultDiv) resultDiv.innerHTML = '<p style="color:#059669;">✅ テストリマインダーを送信しました</p>';
+          } else {
+            App.showToast(result.error || '送信に失敗しました', 'error');
+            if (resultDiv) resultDiv.innerHTML = '<p style="color:#DC2626;">❌ ' + (result.error || '送信に失敗しました') + '</p>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('テスト実行に失敗しました', 'error');
+          console.error(error);
+        })
+        .runTestReminder();
+    }
+
+    // ====== 簡易診断（全ユーザー） ======
+    function runSimpleDiagnostics() {
+      App.showLoading('診断しています...');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          var resultDiv = document.getElementById('simple-diagnostics-result');
+          if (result && result.ok) {
+            var d = result.diagnostics;
+            var html = '<div style="background:#F3F4F6;border-radius:8px;padding:12px;">';
+            html += '<p style="font-size:0.85rem;margin-bottom:4px;">' + (d.spreadsheet ? '✅' : '❌') + ' スプレッドシート</p>';
+            html += '<p style="font-size:0.85rem;margin-bottom:4px;">' + (d.meet ? '✅' : '❌') + ' Meet API</p>';
+            html += '<p style="font-size:0.85rem;margin-bottom:0;">' + (d.chat ? '✅' : '❌') + ' Chat API</p>';
+            html += '</div>';
+            resultDiv.innerHTML = html;
+          } else {
+            resultDiv.innerHTML = '<p style="color:#DC2626;">❌ 診断に失敗しました</p>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('診断に失敗しました', 'error');
+          console.error(error);
+        })
+        .runSimpleDiagnostics();
+    }
+
+    // ====== マスタ再読込 ======
+    function reloadMaster() {
+      App.showLoading('マスタを再読込しています...');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          if (result && result.success) {
+            App.setDepts(result.data);
+            App.showToast('マスタを再読込しました', 'success');
+          } else {
+            App.showToast('再読込に失敗しました', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('再読込に失敗しました', 'error');
+          console.error(error);
+        })
+        .listDepts({ forceRefresh: true });
     }
 
     function selectPeriod(period) {
@@ -1864,12 +2289,26 @@
     return {
       init: init,
       checkAdmin: checkAdmin,
+      // 個人設定
+      saveUserPrefs: saveUserPrefs,
+      resetFavorites: resetFavorites,
+      // 自動化設定
+      saveAutomationConfig: saveAutomationConfig,
+      syncTriggers: syncTriggers,
+      runTestCirculation: runTestCirculation,
+      runTestReminder: runTestReminder,
+      // 診断
+      runSimpleDiagnostics: runSimpleDiagnostics,
+      runDiagnostics: runDiagnostics,
+      validateDepts: validateDepts,
+      // キャッシュ/保守
+      clearCache: clearCache,
+      reloadMaster: reloadMaster,
+      // 回覧表生成
       selectPeriod: selectPeriod,
       selectStatus: selectStatus,
       generateCirculation: generateCirculation,
-      runDiagnostics: runDiagnostics,
-      validateDepts: validateDepts,
-      clearCache: clearCache,
+      // 部署設定
       showDeptList: showDeptList,
       closeDeptListModal: closeDeptListModal,
       openDeptEdit: openDeptEdit,

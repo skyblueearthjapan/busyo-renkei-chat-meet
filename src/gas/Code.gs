@@ -1283,3 +1283,261 @@ var DateRangeService = {
   }
 };
 
+// ============================================
+// Sprint 4: Settings API
+// ============================================
+
+/**
+ * 設定ページ用のブートストラップデータを取得
+ * @returns {Object} { success, data }
+ */
+function getSettingsBootstrap() {
+  try {
+    var user = LogService.getCurrentUserInfo();
+    user.isAdmin = AuthService.isAdmin();
+
+    return {
+      success: true,
+      data: {
+        user: user,
+        userPrefs: UserPreferencesService.getPreferences(),
+        automationConfig: AutomationConfigService.getConfig(),
+        lookup: LookupService.getLookup(),
+        triggers: AuthService.isAdmin() ? AutomationConfigService.listTriggers() : []
+      }
+    };
+  } catch (e) {
+    console.error('getSettingsBootstrap エラー:', e);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * ユーザー設定を保存
+ * @param {Object} patch - { defaultTopTab?, defaultSite?, historyMode? }
+ * @returns {Object} { success, prefs }
+ */
+function saveUserPrefs(patch) {
+  try {
+    var result = UserPreferencesService.savePreferences(patch);
+    if (result.ok) {
+      return { success: true, prefs: result.prefs };
+    } else {
+      return { success: false, error: result.error };
+    }
+  } catch (e) {
+    console.error('saveUserPrefs エラー:', e);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * お気に入りをリセット
+ * @returns {Object} { success }
+ */
+function resetUserFavorites() {
+  try {
+    var result = UserPreferencesService.resetFavorites();
+    if (result.ok) {
+      return { success: true };
+    } else {
+      return { success: false, error: result.error };
+    }
+  } catch (e) {
+    console.error('resetUserFavorites エラー:', e);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * 自動化設定を更新（管理者のみ）
+ * @param {Object} patch - 更新設定
+ * @returns {Object} { success, config }
+ */
+function updateAutomationConfig(patch) {
+  try {
+    var result = AutomationConfigService.updateConfig(patch);
+    if (result.ok) {
+      return { success: true, config: result.config };
+    } else {
+      return { success: false, error: result.error };
+    }
+  } catch (e) {
+    console.error('updateAutomationConfig エラー:', e);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * トリガーを同期（管理者のみ）
+ * @returns {Object} { success, triggers }
+ */
+function syncAutomationTriggers() {
+  try {
+    var result = AutomationConfigService.syncTriggers();
+    if (result.ok) {
+      return { success: true, triggers: result.triggers };
+    } else {
+      return { success: false, error: result.error };
+    }
+  } catch (e) {
+    console.error('syncAutomationTriggers エラー:', e);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * 回覧テスト実行（管理者のみ）
+ * @returns {Object} { success, rows, sheetUrl, postedOk }
+ */
+function runTestCirculation() {
+  try {
+    AuthService.assertAdmin();
+
+    var cfg = AutomationConfigService.getConfig();
+
+    // 今週の範囲で回覧を生成
+    var range = DateRangeService.getRange('WEEKLY');
+    var result = generateCirculation({
+      dateFrom: range.from,
+      dateTo: range.to,
+      includeStatus: cfg.circulation_include_status === 'OPEN_ONLY' ? 'incomplete' : 'all',
+      outputMode: 'Sheet'
+    });
+
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
+
+    var postedOk = false;
+
+    // Chat投稿テスト
+    if (cfg.circulation_notify_space_id) {
+      var memos = SheetService.listMemos({
+        dateFrom: range.from,
+        dateTo: range.to,
+        limit: 10
+      });
+
+      var card = GoogleChatService.buildCirculationCard({
+        title: '📋 [テスト] 問い合わせ回覧表',
+        period: range.fromLabel + '〜' + range.toLabel,
+        memos: memos,
+        portalUrl: result.sheetUrl
+      });
+
+      var chatResult = GoogleChatService.postToSpace(cfg.circulation_notify_space_id, card);
+      postedOk = chatResult.ok;
+    }
+
+    LogService.logEvent({
+      type: 'TestCirculation',
+      action: 'runTestCirculation',
+      status: 'Done',
+      note: 'rows=' + result.rows + ', posted=' + postedOk
+    });
+
+    return {
+      success: true,
+      rows: result.rows,
+      sheetUrl: result.sheetUrl,
+      postedOk: postedOk
+    };
+  } catch (e) {
+    console.error('runTestCirculation エラー:', e);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * リマインドテスト実行（管理者のみ）
+ * @returns {Object} { success, count, postedOk }
+ */
+function runTestReminder() {
+  try {
+    AuthService.assertAdmin();
+
+    var cfg = AutomationConfigService.getConfig();
+
+    // 期限切れメモを取得
+    var overdue = SheetService.listMemos({ overdue: true, limit: 100 });
+
+    var postedOk = false;
+
+    // Chat投稿テスト
+    if (cfg.reminder_notify_space_id && overdue.length > 0) {
+      var ss = SpreadsheetApp.getActiveSpreadsheet();
+      var portalUrl = ss.getUrl();
+
+      var card = GoogleChatService.buildOverdueCard({
+        title: '⏰ [テスト] 未完了タスクリマインド',
+        overdueCount: overdue.length,
+        memos: overdue.slice(0, 5),
+        portalUrl: portalUrl
+      });
+
+      var chatResult = GoogleChatService.postToSpace(cfg.reminder_notify_space_id, card);
+      postedOk = chatResult.ok;
+    }
+
+    LogService.logEvent({
+      type: 'TestReminder',
+      action: 'runTestReminder',
+      status: 'Done',
+      note: 'count=' + overdue.length + ', posted=' + postedOk
+    });
+
+    return {
+      success: true,
+      count: overdue.length,
+      postedOk: postedOk
+    };
+  } catch (e) {
+    console.error('runTestReminder エラー:', e);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * 簡易診断を実行（一般ユーザー向け）
+ * @returns {Object} { success, data }
+ */
+function runSimpleDiagnostics() {
+  try {
+    var results = {
+      bootstrap: { ok: false, message: '' },
+      sheet: { ok: false, message: '' }
+    };
+
+    // Bootstrap取得テスト
+    try {
+      var bs = getBootstrapData();
+      if (bs && bs.depts && bs.depts.length > 0) {
+        results.bootstrap = { ok: true, message: 'データ取得成功（' + bs.depts.length + '部署）' };
+      } else {
+        results.bootstrap = { ok: false, message: 'データが空です' };
+      }
+    } catch (e) {
+      results.bootstrap = { ok: false, message: 'エラー: ' + e.message };
+    }
+
+    // シート書込テスト（読み取りのみ）
+    try {
+      var ss = SpreadsheetApp.getActiveSpreadsheet();
+      var sheet = ss.getSheetByName(Config.SHEET_DEPT);
+      if (sheet) {
+        results.sheet = { ok: true, message: 'シートアクセス成功' };
+      } else {
+        results.sheet = { ok: false, message: 'Dept_Masterシートが見つかりません' };
+      }
+    } catch (e) {
+      results.sheet = { ok: false, message: 'エラー: ' + e.message };
+    }
+
+    return { success: true, data: results };
+  } catch (e) {
+    console.error('runSimpleDiagnostics エラー:', e);
+    return { success: false, error: e.message };
+  }
+}
+
