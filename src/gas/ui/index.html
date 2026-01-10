@@ -546,6 +546,14 @@
           <input type="url" id="m_meet_url" class="form-input" placeholder="https://meet.google.com/xxx-xxxx-xxx">
         </div>
       </div>
+      <!-- テストボタン（保存前でもURLをテストできる） -->
+      <div style="background:#F0F9FF; padding:12px; border-radius:8px; margin-bottom:16px;">
+        <p style="font-size:0.8rem; color:#0369A1; margin-bottom:8px;">💡 保存前にURLをテストできます</p>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-secondary btn-small" onclick="Settings.testChatUrl()">Chatを開く</button>
+          <button type="button" class="btn btn-secondary btn-small" onclick="Settings.testMeetUrl()">Meetを開く</button>
+        </div>
+      </div>
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="Settings.closeDeptModal()">キャンセル</button>
         <button class="btn btn-primary" onclick="Settings.saveDeptSettings()">保存する</button>
@@ -2468,6 +2476,42 @@
         .updateDeptSettings(editingDeptId, patch);
     }
 
+    /**
+     * テスト: 入力中のChat URLを開く（保存前確認用）
+     */
+    function testChatUrl() {
+      var url = document.getElementById('m_chat_url').value.trim();
+      console.log('[testChatUrl] url:', url);
+      if (!url) {
+        App.showToast('Chat URLが入力されていません', 'error');
+        return;
+      }
+      if (!url.startsWith('https://')) {
+        App.showToast('URLはhttps://で始めてください', 'error');
+        return;
+      }
+      window.open(url, '_blank');
+      App.showToast('Chat URLを開きました', 'success');
+    }
+
+    /**
+     * テスト: 入力中のMeet URLを開く（保存前確認用）
+     */
+    function testMeetUrl() {
+      var url = document.getElementById('m_meet_url').value.trim();
+      console.log('[testMeetUrl] url:', url);
+      if (!url) {
+        App.showToast('Meet URLが入力されていません', 'error');
+        return;
+      }
+      if (!url.includes('meet.google.com')) {
+        App.showToast('Meet URLにmeet.google.comが含まれていません', 'error');
+        return;
+      }
+      window.open(url, '_blank');
+      App.showToast('Meet URLを開きました', 'success');
+    }
+
     return {
       init: init,
       checkAdmin: checkAdmin,
@@ -2496,7 +2540,10 @@
       openDeptEdit: openDeptEdit,
       closeDeptModal: closeDeptModal,
       toggleMeetUrlField: toggleMeetUrlField,
-      saveDeptSettings: saveDeptSettings
+      saveDeptSettings: saveDeptSettings,
+      // テスト（保存前URL確認）
+      testChatUrl: testChatUrl,
+      testMeetUrl: testMeetUrl
     };
   })();
 
