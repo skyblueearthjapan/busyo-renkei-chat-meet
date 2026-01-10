@@ -489,7 +489,7 @@
     <div class="modal-content" style="max-width:500px;">
       <div class="modal-header">
         <h3>部署設定を編集</h3>
-        <button class="modal-close" onclick="Settings.closeDeptModal()">&times;</button>
+        <button type="button" class="modal-close" onclick="Settings.closeDeptModal()">&times;</button>
       </div>
       <div class="modal-body">
         <p style="font-size:1.1rem; font-weight:bold;" id="m_dept_name_display"></p>
@@ -555,8 +555,8 @@
         </div>
       </div>
       <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="Settings.closeDeptModal()">キャンセル</button>
-        <button class="btn btn-primary" onclick="Settings.saveDeptSettings()">保存する</button>
+        <button type="button" class="btn btn-secondary" onclick="Settings.closeDeptModal()">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="Settings.saveDeptSettings()">保存する</button>
       </div>
     </div>
   </div>
@@ -2460,9 +2460,12 @@
     }
 
     function saveDeptSettings() {
+      console.log('[saveDeptSettings] ★ 保存ボタンがクリックされました');
       console.log('[saveDeptSettings] editingDeptId:', editingDeptId);
+      App.showToast('保存処理を開始...', 'success');  // デバッグ用：クリック確認
       if (!editingDeptId) {
         console.warn('[saveDeptSettings] editingDeptIdがありません');
+        App.showToast('部署IDが取得できていません', 'error');
         return;
       }
 
