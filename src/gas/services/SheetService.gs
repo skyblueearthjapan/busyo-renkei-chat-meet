@@ -189,8 +189,19 @@ var SheetService = (function() {
       // 無効な部署をスキップ（includeDisabled=true でない場合）
       if (!isEnabled && !includeDisabled) continue;
 
+      // ★ dept_id を複数のカラム名で探す（フォールバック対応）
+      var deptId = row['dept_id'] || row['部署ID'] || '';
+
+      // それでも空の場合は、行番号ベースでIDを生成
+      if (!deptId) {
+        var deptName = row['部署表示名'] || '';
+        // 部署表示名をスネークケースに変換してIDとして使用
+        deptId = 'dept_' + (i + 1) + '_' + deptName.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
+        console.warn('[fetchDeptListFromSheet] dept_idカラムがないため、生成しました: ' + deptId);
+      }
+
       depts.push({
-        dept_id: row['dept_id'] || '',
+        dept_id: deptId,
         name: row['部署表示名'] || '',
         site: row['拠点'] || '',
         order: parseInt(row['表示順'], 10) || 999,
@@ -200,7 +211,8 @@ var SheetService = (function() {
         notify_space_id: row['通知先ChatスペースID'] || '',
         meet_mode: row['Meet利用'] || '',
         meet_url: row['常設Meet URL (任意)'] || '',
-        note: row['説明/メモ'] || ''
+        note: row['説明/メモ'] || '',
+        _rowIndex: i + 2  // ★ 行番号を保持（更新時に使用）
       });
     }
 
@@ -254,6 +266,7 @@ var SheetService = (function() {
    * @param {Object} patch - 更新フィールド
    */
   function updateDeptRow(deptId, patch) {
+    console.log('[updateDeptRow] deptId:', deptId, 'patch:', JSON.stringify(patch));
     var sheet = getSheet(Config.SHEET_DEPT);
     var data = sheet.getDataRange().getValues();
     var headers = data[0];
@@ -272,29 +285,68 @@ var SheetService = (function() {
       'note': '説明/メモ'
     };
 
+    // ★ dept_idカラムを探す（複数のカラム名に対応）
     var deptIdCol = colMap['dept_id'];
     if (deptIdCol === undefined) {
-      throw new Error('Dept_MasterにdeptIdカラムがありません。');
+      deptIdCol = colMap['部署ID'];
     }
 
-    for (var i = 1; i < data.length; i++) {
-      if (data[i][deptIdCol] === deptId) {
-        for (var field in patch) {
-          var headerName = fieldToHeader[field];
-          if (headerName && colMap[headerName] !== undefined) {
-            var colIndex = colMap[headerName];
-            var value = patch[field];
-            // enabled は Y/N に変換
-            if (field === 'enabled') {
-              value = value ? 'Y' : 'N';
-            }
-            sheet.getRange(i + 1, colIndex + 1).setValue(value);
-          }
-        }
-        return;
+    var targetRowIndex = -1;
+
+    // ★ 生成されたID（dept_N_xxx形式）の場合、行番号を抽出
+    if (deptId && deptId.startsWith('dept_')) {
+      var match = deptId.match(/^dept_(\d+)_/);
+      if (match) {
+        var rowNum = parseInt(match[1], 10);
+        // rowNumは1始まり（ヘッダー除く）なので、実際のdata indexはrowNum（0始まりなら+1）
+        targetRowIndex = rowNum;  // data配列での行番号
+        console.log('[updateDeptRow] 生成IDから行番号を抽出:', targetRowIndex);
       }
     }
-    throw new Error('部署が見つかりません: ' + deptId);
+
+    // dept_idカラムがある場合は、そのカラムで検索
+    if (targetRowIndex === -1 && deptIdCol !== undefined) {
+      for (var i = 1; i < data.length; i++) {
+        if (data[i][deptIdCol] === deptId) {
+          targetRowIndex = i;
+          break;
+        }
+      }
+    }
+
+    // 見つからない場合、部署表示名でも検索（フォールバック）
+    if (targetRowIndex === -1) {
+      var nameCol = colMap['部署表示名'];
+      if (nameCol !== undefined && patch.name) {
+        for (var i = 1; i < data.length; i++) {
+          if (data[i][nameCol] === patch.name) {
+            targetRowIndex = i;
+            console.log('[updateDeptRow] 部署表示名で行を特定:', targetRowIndex);
+            break;
+          }
+        }
+      }
+    }
+
+    if (targetRowIndex === -1) {
+      throw new Error('部署が見つかりません: ' + deptId);
+    }
+
+    // 更新実行
+    for (var field in patch) {
+      var headerName = fieldToHeader[field];
+      if (headerName && colMap[headerName] !== undefined) {
+        var colIndex = colMap[headerName];
+        var value = patch[field];
+        // enabled は Y/N に変換
+        if (field === 'enabled') {
+          value = value ? 'Y' : 'N';
+        }
+        sheet.getRange(targetRowIndex + 1, colIndex + 1).setValue(value);
+        console.log('[updateDeptRow] 更新:', headerName, '=', value, 'at row', targetRowIndex + 1);
+      }
+    }
+    console.log('[updateDeptRow] 完了');
   }
 
   // ============================================
