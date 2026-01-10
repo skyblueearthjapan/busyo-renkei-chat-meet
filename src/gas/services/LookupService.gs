@@ -69,7 +69,8 @@ var LookupService = (function() {
       outcomes: [],
       priorities: [],
       statuses: [],
-      channels: []
+      channels: [],
+      Site: []  // 拠点一覧
     };
 
     var categoryMap = {
@@ -77,7 +78,8 @@ var LookupService = (function() {
       'Outcome': 'outcomes',
       'Priority': 'priorities',
       'Status': 'statuses',
-      'Channel': 'channels'
+      'Channel': 'channels',
+      'Site': 'Site'  // 拠点カテゴリを追加
     };
 
     var tempData = {};
@@ -119,7 +121,8 @@ var LookupService = (function() {
       outcomes: ['その場で解決', 'Meetで解決', '後日対応', '設計修正が必要', '加工条件変更が必要', 'エスカレーション', '未完/保留'],
       priorities: ['高', '中', '低'],
       statuses: ['Open', 'In Progress', 'Done', 'Canceled'],
-      channels: ['Chat', 'Meet', 'Chat→Meet', 'Meet→Chat']
+      channels: ['Chat', 'Meet', 'Chat→Meet', 'Meet→Chat'],
+      Site: []  // デフォルトは空（部署データからフォールバック）
     };
   }
 
@@ -143,7 +146,8 @@ var LookupService = (function() {
       'Outcome': 'outcomes',
       'Priority': 'priorities',
       'Status': 'statuses',
-      'Channel': 'channels'
+      'Channel': 'channels',
+      'Site': 'Site'
     };
     var key = categoryMap[category] || category;
     return lookup[key] || [];

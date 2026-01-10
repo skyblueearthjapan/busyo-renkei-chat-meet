@@ -123,6 +123,12 @@ var SheetService = (function() {
    */
   function getDeptList(filters) {
     filters = filters || {};
+    var includeDisabled = filters.includeDisabled || false;
+
+    // 無効部署を含める場合はキャッシュをスキップ（管理者用）
+    if (includeDisabled) {
+      return fetchDeptListFromSheet(true);
+    }
 
     // キャッシュから取得を試みる
     var cache = CacheService.getScriptCache();
@@ -138,7 +144,7 @@ var SheetService = (function() {
     }
 
     if (!depts) {
-      depts = fetchDeptListFromSheet();
+      depts = fetchDeptListFromSheet(false);
       // キャッシュに保存
       try {
         cache.put(DEPT_CACHE_KEY, JSON.stringify(depts), Config.CACHE_TTL);
@@ -171,23 +177,24 @@ var SheetService = (function() {
    * シートから部署データを取得
    * @returns {Array} 部署リスト
    */
-  function fetchDeptListFromSheet() {
+  function fetchDeptListFromSheet(includeDisabled) {
     var sheetData = getSheetDataWithMap(Config.SHEET_DEPT);
     var rows = sheetData.rows;
     var depts = [];
 
     for (var i = 0; i < rows.length; i++) {
       var row = rows[i];
+      var isEnabled = row['有効(Y/N)'] === 'Y';
 
-      // 有効=Y のみ
-      if (row['有効(Y/N)'] !== 'Y') continue;
+      // 無効な部署をスキップ（includeDisabled=true でない場合）
+      if (!isEnabled && !includeDisabled) continue;
 
       depts.push({
         dept_id: row['dept_id'] || '',
         name: row['部署表示名'] || '',
         site: row['拠点'] || '',
         order: parseInt(row['表示順'], 10) || 999,
-        enabled: true,
+        enabled: isEnabled ? 'Y' : 'N',  // 文字列で返す
         chat_url: row['Chat URL (任意)'] || '',
         chat_space_id: row['ChatスペースID (spaces/...)'] || '',
         notify_space_id: row['通知先ChatスペースID'] || '',
