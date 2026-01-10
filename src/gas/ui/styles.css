@@ -92,13 +92,26 @@ body {
   min-height: calc(100vh - 160px); /* ヘッダー + タブナビ分 */
 }
 
-/* ページ切り替え（SPA方式） */
+/* ページ切り替え（SPA方式）
+   ★重要: hiddenクラスで確実に非表示にする */
 .page {
   display: block;
   animation: fadeIn 0.3s ease;
 }
 
 .page.hidden {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* ID指定で更に高い優先度（フォールバック） */
+#page-home.hidden,
+#page-history.hidden,
+#page-memo.hidden,
+#page-detail.hidden,
+#page-settings.hidden {
   display: none !important;
 }
 

@@ -60,7 +60,7 @@
     </section>
 
     <!-- ==================== HISTORY ==================== -->
-    <section id="page-history" class="page hidden">
+    <section id="page-history" class="page hidden" style="display:none;">
       <div class="page-header">
         <h2 class="page-title">履歴</h2>
       </div>
@@ -104,7 +104,7 @@
     </section>
 
     <!-- ==================== MEMO ==================== -->
-    <section id="page-memo" class="page hidden">
+    <section id="page-memo" class="page hidden" style="display:none;">
       <div class="page-header">
         <h2 class="page-title">1分メモ</h2>
       </div>
@@ -177,7 +177,7 @@
     </section>
 
     <!-- ==================== DETAIL ==================== -->
-    <section id="page-detail" class="page hidden">
+    <section id="page-detail" class="page hidden" style="display:none;">
       <div class="page-header">
         <h2 class="page-title">メモ詳細</h2>
         <button class="btn btn-secondary btn-small" onclick="App.showPage('history')">← 戻る</button>
@@ -193,7 +193,7 @@
     </section>
 
     <!-- ==================== SETTINGS ==================== -->
-    <section id="page-settings" class="page hidden">
+    <section id="page-settings" class="page hidden" style="display:none;">
       <div class="page-header">
         <h2 class="page-title">設定</h2>
       </div>
@@ -625,7 +625,8 @@
       depts: [],
       lookup: {},
       user: null,
-      favorites: new Set() // お気に入りをSetで管理
+      favorites: new Set(), // お気に入りをSetで管理
+      rendered: new Set()   // 初回レンダリング済みページを追跡
     };
 
     var elements = {};
@@ -636,6 +637,12 @@
     function init() {
       cacheElements();
 
+      // ★ 最初に全ページを強制的にhidden（安全策：クラス + インラインスタイル両方）
+      document.querySelectorAll('.page').forEach(function(el) {
+        el.classList.add('hidden');
+        el.style.display = 'none';
+      });
+
       if (typeof BOOTSTRAP_DATA !== 'undefined' && BOOTSTRAP_DATA) {
         state.bootstrap = BOOTSTRAP_DATA;
         state.depts = BOOTSTRAP_DATA.depts || [];
@@ -644,15 +651,15 @@
 
         updateUserInfo();
 
-        // 初期ページを決定
-        var initialPage = INITIAL_PARAMS.page || 'home';
-        showPage(initialPage, true);
-
-        // 各モジュールを初期化
+        // 各モジュールを初期化（データ準備のみ、レンダリングはまだ）
         Home.init();
         History.init();
         Memo.init();
         Settings.init();
+
+        // 初期ページを表示
+        var initialPage = INITIAL_PARAMS.page || 'home';
+        showPage(initialPage, true);
 
         hideLoading();
       } else {
@@ -675,23 +682,34 @@
 
     /**
      * ページ切り替え（SPA方式）
+     * 表示/非表示だけを担当。レンダリングは各ページモジュールが自分のコンテナにのみ行う。
      */
     function showPage(page, skipLog) {
       try {
-        // 全ページを非表示
-        document.querySelectorAll('.page').forEach(function(el) {
+        console.log('[SPA] showPage:', page);
+
+        // ★ 全ページを非表示（hiddenクラス + インラインstyle両方で確実に）
+        var allPages = document.querySelectorAll('.page');
+        allPages.forEach(function(el) {
           el.classList.add('hidden');
+          el.style.display = 'none';
         });
 
         // 対象ページを表示
         var target = document.getElementById('page-' + page);
         if (!target) {
-          console.error('page-' + page + ' が見つかりません');
+          console.error('[SPA] page-' + page + ' が見つかりません');
           // フォールバック: homeを表示
           target = document.getElementById('page-home');
           page = 'home';
         }
         target.classList.remove('hidden');
+        target.style.display = '';  // インラインスタイルをクリア（CSSに任せる）
+
+        // ★ 確認ログ（デバッグ用）
+        console.log('[SPA] Visible pages:', Array.from(allPages).filter(function(p) {
+          return !p.classList.contains('hidden');
+        }).map(function(p) { return p.id; }));
 
         // 下部ナビのアクティブ状態を更新
         document.querySelectorAll('.tab-nav .tab-btn').forEach(function(btn) {
@@ -704,8 +722,10 @@
 
         state.currentPage = page;
 
-        // ページ固有の初期化
-        if (page === 'history') {
+        // ページ固有のデータロード（初回 or 毎回）
+        if (page === 'home') {
+          // Homeは init() でロード済み
+        } else if (page === 'history') {
           History.loadMemos();
         } else if (page === 'memo') {
           Memo.setupForm();
@@ -715,6 +735,9 @@
           Settings.checkAdmin();
         }
 
+        // スクロールを先頭に
+        window.scrollTo({ top: 0, behavior: 'auto' });
+
         // UIイベントログ（任意）
         if (!skipLog) {
           logUiEvent('Open' + capitalize(page));
@@ -722,6 +745,15 @@
       } catch (e) {
         safeError('showPage エラー', e);
       }
+    }
+
+    /**
+     * デバッグ用：全ページの状態を確認
+     */
+    function debugPages() {
+      document.querySelectorAll('.page').forEach(function(p) {
+        console.log(p.id, 'hidden:', p.classList.contains('hidden'), 'text:', p.innerText.slice(0, 40));
+      });
     }
 
     function capitalize(str) {
@@ -877,7 +909,8 @@
       setFavorites: setFavorites,
       getDeptById: getDeptById,
       populateDeptSelect: populateDeptSelect,
-      populateLookupSelect: populateLookupSelect
+      populateLookupSelect: populateLookupSelect,
+      debugPages: debugPages  // デバッグ用
     };
   })();
 
