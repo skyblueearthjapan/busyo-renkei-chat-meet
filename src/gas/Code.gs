@@ -10,38 +10,16 @@
 // ============================================
 
 /**
- * Webアプリのエントリポイント
+ * Webアプリのエントリポイント（SPA統合版）
  * @param {Object} e - イベントオブジェクト
  * @returns {HtmlOutput} HTMLページ
  */
 function doGet(e) {
-  var page = e.parameter.page || 'home';
-  var params = e.parameter;
+  var params = e.parameter || {};
+  var page = params.page || 'home';
 
-  // ページに応じたHTMLを返す
-  var htmlFile;
-  switch (page) {
-    case 'memo':
-      htmlFile = 'ui/memo';
-      break;
-    case 'history':
-      htmlFile = 'ui/history';
-      break;
-    case 'detail':
-      htmlFile = 'ui/detail';
-      break;
-    case 'admin':
-      htmlFile = 'ui/admin';
-      break;
-    case 'home':
-    default:
-      htmlFile = 'ui/index';
-      page = 'home';
-      break;
-  }
-
-  // HTMLテンプレートを生成
-  var template = HtmlService.createTemplateFromFile(htmlFile);
+  // SPA: 常にindex.htmlを返す（ページ切替はクライアント側showPage()で行う）
+  var template = HtmlService.createTemplateFromFile('ui/index');
 
   // bootstrapデータを埋め込み（初回ロードを速く）
   var bootstrap = getBootstrapData();
