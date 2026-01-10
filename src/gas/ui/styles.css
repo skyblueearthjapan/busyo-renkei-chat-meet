@@ -342,6 +342,20 @@ body {
   background: var(--color-lime-dark);
 }
 
+/* お気に入り☆ボタン */
+.fav-star {
+  color: #D1D5DB;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.fav-star:hover {
+  transform: scale(1.2);
+}
+
+.fav-star.active {
+  color: #F59E0B;
+}
+
 .btn-primary {
   background: linear-gradient(135deg, var(--color-sky-dark) 0%, var(--color-lime-dark) 100%);
   color: var(--color-text);

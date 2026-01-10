@@ -996,7 +996,7 @@
           recommended.slice(0, 4).map(function(deptId) {
             var dept = App.getDeptById(deptId);
             if (!dept) return '';
-            return '<button class="chip" onclick="Home.handleMeet(\'' + App.escapeHtml(deptId) + '\')">' +
+            return '<button type="button" class="chip" data-action="meet" data-dept="' + App.escapeHtml(deptId) + '">' +
               App.escapeHtml(dept.name) + '</button>';
           }).join('') +
           '</div></div>';
@@ -1026,6 +1026,33 @@
           renderDeptList();
         }, 300));
       }
+
+      // ★ イベント委譲：お気に入り☆ / Chat / Meet ボタン
+      document.addEventListener('click', function(e) {
+        // お気に入り☆クリック
+        var starBtn = e.target.closest('[data-fav]');
+        if (starBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          var deptId = starBtn.getAttribute('data-fav');
+          toggleFavorite(deptId, starBtn);
+          return;
+        }
+
+        // Chat/Meet ボタンクリック
+        var actionBtn = e.target.closest('[data-action]');
+        if (actionBtn && !actionBtn.disabled) {
+          var action = actionBtn.getAttribute('data-action');
+          var deptId = actionBtn.getAttribute('data-dept');
+          if (!deptId) return;
+
+          if (action === 'chat') {
+            handleChat(deptId);
+          } else if (action === 'meet') {
+            handleMeet(deptId);
+          }
+        }
+      });
     }
 
     function renderSiteChips() {
@@ -1075,25 +1102,30 @@
       var meetDisabled = dept.enabled === 'N';
       var isFav = App.getFavorites().has(dept.dept_id);
 
-      var starHtml = '<button class="fav-star" onclick="event.stopPropagation(); Home.toggleFavorite(\'' +
-        App.escapeHtml(dept.dept_id) + '\')" title="' + (isFav ? 'お気に入り解除' : 'お気に入り追加') +
-        '" style="position:absolute; top:8px; right:8px; background:none; border:none; font-size:1.2rem; cursor:pointer; color:' +
-        (isFav ? '#F59E0B' : '#D1D5DB') + ';">' + (isFav ? '★' : '☆') + '</button>';
+      // デバッグ用（問題発生時にコンソール確認）
+      // console.log('[renderDeptCard]', dept.dept_id, 'isFav:', isFav, 'favorites:', [...App.getFavorites()]);
+
+      // ★ data-fav 属性を使用（onclick禁止、イベント委譲で処理）
+      var starHtml = '<button type="button" class="fav-star' + (isFav ? ' active' : '') + '" ' +
+        'data-fav="' + App.escapeHtml(dept.dept_id) + '" ' +
+        'title="' + (isFav ? 'お気に入り解除' : 'お気に入り追加') + '" ' +
+        'style="position:absolute; top:8px; right:8px; background:none; border:none; font-size:1.2rem; cursor:pointer;">' +
+        (isFav ? '★' : '☆') + '</button>';
 
       return '<div class="dept-card" data-dept-id="' + App.escapeHtml(dept.dept_id) + '" style="position:relative;">' +
         starHtml +
         '<div class="dept-info">' +
           '<div class="dept-name">' + App.escapeHtml(dept.name) + '</div>' +
           (dept.note ? '<div class="dept-description">' + App.escapeHtml(dept.note) + '</div>' : '') +
-          '<span class="dept-location">' + App.escapeHtml(dept.site) + '</span>' +
+          '<span class="dept-location">' + App.escapeHtml(dept.site || '') + '</span>' +
         '</div>' +
         '<div class="dept-actions">' +
-          '<button class="btn btn-chat" ' + (chatDisabled ? 'disabled title="準備中です"' : '') +
-            ' onclick="Home.handleChat(\'' + App.escapeHtml(dept.dept_id) + '\')">' +
+          '<button type="button" class="btn btn-chat" data-action="chat" data-dept="' + App.escapeHtml(dept.dept_id) + '" ' +
+            (chatDisabled ? 'disabled title="準備中です"' : '') + '>' +
             '💬 Chat' +
           '</button>' +
-          '<button class="btn btn-meet" ' + (meetDisabled ? 'disabled title="準備中です"' : '') +
-            ' onclick="Home.handleMeet(\'' + App.escapeHtml(dept.dept_id) + '\')">' +
+          '<button type="button" class="btn btn-meet" data-action="meet" data-dept="' + App.escapeHtml(dept.dept_id) + '" ' +
+            (meetDisabled ? 'disabled title="準備中です"' : '') + '>' +
             '📹 Meet' +
           '</button>' +
         '</div>' +
@@ -1128,10 +1160,12 @@
       }).join('');
     }
 
-    function toggleFavorite(deptId) {
+    function toggleFavorite(deptId, starBtn) {
       var favSet = App.getFavorites();
       var isFav = favSet.has(deptId);
       var newState = !isFav;
+
+      console.log('[toggleFavorite]', deptId, 'isFav:', isFav, '→ newState:', newState);
 
       // 即座にUI更新（楽観的更新）
       if (newState) {
@@ -1141,13 +1175,16 @@
       }
       App.setFavorites(favSet);
 
-      // 現在のタブを再描画
+      // ★ 押した☆ボタンだけをDOM更新（全体再描画しない）
+      if (starBtn) {
+        starBtn.classList.toggle('active', newState);
+        starBtn.innerHTML = newState ? '★' : '☆';
+        starBtn.title = newState ? 'お気に入り解除' : 'お気に入り追加';
+      }
+
+      // お気に入りタブの場合のみリスト更新（リストの増減があるため）
       if (currentTab === 'favorites') {
         renderQuickSection('favorites');
-      } else if (currentTab === 'all') {
-        renderDeptList();
-      } else if (currentTab === 'recents') {
-        renderQuickSection('recents');
       }
 
       // サーバーに保存
@@ -1157,52 +1194,120 @@
             App.showToast(newState ? 'お気に入りに追加しました' : 'お気に入りから削除しました', 'success');
           } else {
             // 失敗時はロールバック
-            if (newState) favSet.delete(deptId); else favSet.add(deptId);
-            App.setFavorites(favSet);
+            rollbackFavorite(deptId, newState, starBtn);
             App.showToast(result.error || '設定に失敗しました', 'error');
           }
         })
         .withFailureHandler(function(error) {
           // 失敗時はロールバック
-          if (newState) favSet.delete(deptId); else favSet.add(deptId);
-          App.setFavorites(favSet);
+          rollbackFavorite(deptId, newState, starBtn);
           App.showToast('設定に失敗しました', 'error');
           console.error(error);
         })
         .setFavorite(deptId, newState);
     }
 
+    function rollbackFavorite(deptId, wasNewState, starBtn) {
+      var favSet = App.getFavorites();
+      if (wasNewState) {
+        favSet.delete(deptId);
+      } else {
+        favSet.add(deptId);
+      }
+      App.setFavorites(favSet);
+
+      // UIをロールバック
+      if (starBtn) {
+        var restoredState = !wasNewState;
+        starBtn.classList.toggle('active', restoredState);
+        starBtn.innerHTML = restoredState ? '★' : '☆';
+        starBtn.title = restoredState ? 'お気に入り解除' : 'お気に入り追加';
+      }
+
+      if (currentTab === 'favorites') {
+        renderQuickSection('favorites');
+      }
+    }
+
     function handleChat(deptId) {
-      App.showLoading('Chatを開いています...');
-      google.script.run
-        .withSuccessHandler(function(result) {
-          App.hideLoading();
-          if (result.success) {
-            App.showToast(result.deptName + ' のChatを開きます', 'success');
-            window.open(result.chatUrl, '_blank');
-          } else {
-            App.showToast(result.error || 'Chatを開けませんでした', 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          App.hideLoading();
-          App.showToast('エラーが発生しました', 'error');
-          console.error(error);
-        })
-        .openChat(deptId);
+      var dept = App.getDeptById(deptId);
+      if (!dept) {
+        App.showToast('部署が見つかりません', 'error');
+        return;
+      }
+
+      // ★ リンク方式：chat_url があれば直接開く（API不要）
+      if (dept.chat_url) {
+        window.open(dept.chat_url, '_blank');
+        App.showToast(dept.name + ' のChatを開きます', 'success');
+        // ログ記録
+        google.script.run.logEvent({
+          type: 'OpenChat',
+          action: 'Chat',
+          to_dept_id: deptId,
+          note: 'リンク方式'
+        });
+        return;
+      }
+
+      // chat_url がない場合はAPI経由（chat_space_id から URL生成）
+      if (dept.chat_space_id) {
+        App.showLoading('Chatを開いています...');
+        google.script.run
+          .withSuccessHandler(function(result) {
+            App.hideLoading();
+            if (result.success) {
+              App.showToast(dept.name + ' のChatを開きます', 'success');
+              window.open(result.chatUrl, '_blank');
+            } else {
+              App.showToast(result.error || 'Chatを開けませんでした', 'error');
+            }
+          })
+          .withFailureHandler(function(error) {
+            App.hideLoading();
+            App.showToast('エラーが発生しました', 'error');
+            console.error(error);
+          })
+          .openChat(deptId);
+        return;
+      }
+
+      // どちらもない場合
+      App.showToast('Chatリンクが未設定です。管理者に連絡してください。', 'error');
     }
 
     function handleMeet(deptId) {
+      var dept = App.getDeptById(deptId);
+      if (!dept) {
+        App.showToast('部署が見つかりません', 'error');
+        return;
+      }
+
+      // ★ 常設URLがあれば最速で開く（API不要）
+      if (dept.meet_mode === '常設URL' && dept.meet_url) {
+        window.open(dept.meet_url, '_blank');
+        App.showToast(dept.name + ' のMeetを開きます', 'success');
+        // ログ記録
+        google.script.run.logEvent({
+          type: 'OpenMeet',
+          action: 'Meet',
+          to_dept_id: deptId,
+          note: '常設URL',
+          meet_url: dept.meet_url
+        });
+        return;
+      }
+
+      // ★ 都度生成（既存のcreateMeet API）
       App.showLoading('接続しています...');
       google.script.run
         .withSuccessHandler(function(result) {
           App.hideLoading();
           if (result.success) {
             currentMeetData = result;
-            var targetDept = App.getDeptById(deptId);
-            currentMeetData.targetDept = targetDept || null;
+            currentMeetData.targetDept = dept;
 
-            document.getElementById('meet-dept-name').textContent = result.deptName;
+            document.getElementById('meet-dept-name').textContent = result.deptName || dept.name;
             document.getElementById('meet-event-id').textContent = result.eventId || '';
 
             var notifySuccess = document.getElementById('notify-success');
@@ -1220,14 +1325,14 @@
             } else {
               notifyFallback.style.display = 'block';
               fallbackActions.style.display = 'block';
-              if (targetDept && !targetDept.notify_space_id) {
+              if (!dept.notify_space_id) {
                 fallbackMessage.textContent = '📢 この部署には通知設定がありません';
               } else {
                 fallbackMessage.textContent = '⚠️ 通知の送信に失敗しました';
               }
               var btnOpenChat = document.getElementById('btn-open-chat');
               if (btnOpenChat) {
-                var hasChat = targetDept && (targetDept.chat_url || targetDept.chat_space_id);
+                var hasChat = dept.chat_url || dept.chat_space_id;
                 btnOpenChat.disabled = !hasChat;
               }
               App.showToast('Meetを開始しました。相手には直接連絡してください。', 'info');
