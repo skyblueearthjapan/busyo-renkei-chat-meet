@@ -310,6 +310,12 @@
         <button class="modal-close" onclick="Settings.closeDeptListModal()">&times;</button>
       </div>
       <div class="modal-body" style="max-height:60vh; overflow-y:auto;">
+        <!-- 新規追加ボタン -->
+        <div style="margin-bottom:12px;">
+          <button type="button" class="btn btn-primary" onclick="Settings.openNewDeptModal()">
+            ➕ 新規部署を追加
+          </button>
+        </div>
         <div id="admin-dept-list">
           <!-- 動的に部署リストが挿入される -->
         </div>
@@ -1508,18 +1514,104 @@
           : '<span style="color:#D97706;font-size:0.8rem;">⚠️</span>';
 
         return '<div class="settings-card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:12px;">' +
-          '<div>' +
+          '<div style="flex:1;">' +
             '<div style="font-weight:bold;">' + App.escapeHtml(dept.name) + '</div>' +
             '<div style="font-size:0.8rem;color:#666;">' + App.escapeHtml(dept.site || '') + ' | 順序: ' + (dept.order || 999) + '</div>' +
             '<div style="margin-top:4px;">' + statusBadge + ' ' + notifyBadge + '</div>' +
           '</div>' +
-          '<button class="btn btn-secondary btn-small" onclick="Settings.openDeptEdit(\'' + App.escapeHtml(dept.dept_id) + '\')">✏️</button>' +
+          '<div style="display:flex;gap:4px;">' +
+            '<button class="btn btn-secondary btn-small" onclick="Settings.openDeptEdit(\'' + App.escapeHtml(dept.dept_id) + '\')" title="編集">✏️</button>' +
+            '<button class="btn btn-danger btn-small" onclick="Settings.confirmDeleteDept(\'' + App.escapeHtml(dept.dept_id) + '\', \'' + App.escapeHtml(dept.name) + '\')" title="削除" style="background:#DC2626;color:white;">🗑️</button>' +
+          '</div>' +
         '</div>';
       }).join('');
     }
 
     function closeDeptListModal() {
       document.getElementById('dept-list-modal').classList.add('hidden');
+    }
+
+    /**
+     * 新規部署追加モーダルを開く
+     */
+    function openNewDeptModal() {
+      console.log('[openNewDeptModal] 新規部署追加');
+      editingDeptId = null;  // nullで新規追加モード
+
+      // 部署一覧モーダルを閉じる
+      document.getElementById('dept-list-modal').classList.add('hidden');
+
+      // フォームをクリア
+      document.getElementById('m_dept_name_display').textContent = '新規部署';
+      document.getElementById('m_dept_id').textContent = '（自動生成）';
+      document.getElementById('m_name').value = '';
+      document.getElementById('m_order').value = 999;
+      document.getElementById('m_enabled').checked = true;
+      document.getElementById('m_chat_url').value = '';
+      document.getElementById('m_notify').value = '';
+      document.getElementById('m_meet_mode').value = '常設URL';
+      document.getElementById('m_meet_url').value = '';
+
+      // サイト選択肢を設定
+      var siteSelect = document.getElementById('m_site');
+      siteSelect.innerHTML = '<option value="">選択してください</option>';
+      var lookup = App.getLookup();
+      var sites = lookup.Site || [];
+      if (sites.length === 0) {
+        var depts = App.getDepts();
+        depts.forEach(function(d) {
+          if (d.site && sites.indexOf(d.site) < 0) sites.push(d.site);
+        });
+      }
+      sites.forEach(function(site) {
+        var option = document.createElement('option');
+        option.value = site;
+        option.textContent = site;
+        siteSelect.appendChild(option);
+      });
+
+      toggleMeetUrlField();
+      document.getElementById('dept-edit-modal').classList.remove('hidden');
+    }
+
+    /**
+     * 部署削除確認
+     */
+    function confirmDeleteDept(deptId, deptName) {
+      if (!confirm('「' + deptName + '」を削除しますか？\n\nこの操作は取り消せません。')) {
+        return;
+      }
+      deleteDept(deptId);
+    }
+
+    /**
+     * 部署を削除
+     */
+    function deleteDept(deptId) {
+      console.log('[deleteDept] deptId:', deptId);
+      App.showLoading('削除しています...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          console.log('[deleteDept] result:', result);
+          if (result.success) {
+            App.showToast('部署を削除しました', 'success');
+            // 部署一覧を再読み込み
+            showDeptList();
+            // Home画面の部署リストも更新
+            App.loadDepts();
+          } else {
+            console.error('[deleteDept] エラー:', result.error);
+            App.showToast(result.error || '削除に失敗しました', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          console.error('[deleteDept] 通信エラー:', error);
+          App.showToast('削除に失敗しました', 'error');
+        })
+        .deleteDept(deptId);
     }
 
     function openDeptEdit(deptId) {
@@ -1590,12 +1682,6 @@
     function saveDeptSettings() {
       console.log('[saveDeptSettings] ★ 保存ボタンがクリックされました');
       console.log('[saveDeptSettings] editingDeptId:', editingDeptId);
-      App.showToast('保存処理を開始...', 'success');  // デバッグ用：クリック確認
-      if (!editingDeptId) {
-        console.warn('[saveDeptSettings] editingDeptIdがありません');
-        App.showToast('部署IDが取得できていません', 'error');
-        return;
-      }
 
       var patch = {
         name: document.getElementById('m_name').value.trim(),
@@ -1610,6 +1696,10 @@
       console.log('[saveDeptSettings] patch:', patch);
 
       // バリデーション
+      if (!patch.name) {
+        App.showToast('部署表示名を入力してください', 'error');
+        return;
+      }
       if (patch.chat_url && !patch.chat_url.startsWith('https://')) {
         App.showToast('Chat URLはhttps://で始めてください', 'error');
         return;
@@ -1621,27 +1711,42 @@
 
       App.showLoading('保存しています...');
 
-      google.script.run
-        .withSuccessHandler(function(result) {
-          App.hideLoading();
-          console.log('[saveDeptSettings] result:', result);
-          if (result.success) {
-            App.showToast('保存しました', 'success');
-            closeDeptModal();
-            closeDeptListModal();
-            // ★ 部署データを再読み込み（Home画面のリストも更新）
-            App.loadDepts();
-          } else {
-            console.error('[saveDeptSettings] エラー:', result.error);
-            App.showToast(result.error || '保存に失敗しました', 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          App.hideLoading();
-          console.error('[saveDeptSettings] 通信エラー:', error);
-          App.showToast('保存に失敗しました。入力内容を確認してください', 'error');
-        })
-        .updateDeptSettings(editingDeptId, patch);
+      // ★ 新規追加 or 更新を判定
+      var isNew = !editingDeptId;
+
+      function onSuccess(result) {
+        App.hideLoading();
+        console.log('[saveDeptSettings] result:', result);
+        if (result.success) {
+          App.showToast(isNew ? '部署を追加しました' : '保存しました', 'success');
+          closeDeptModal();
+          // ★ 部署データを再読み込み（Home画面のリストも更新）
+          App.loadDepts();
+        } else {
+          console.error('[saveDeptSettings] エラー:', result.error);
+          App.showToast(result.error || '保存に失敗しました', 'error');
+        }
+      }
+
+      function onFailure(error) {
+        App.hideLoading();
+        console.error('[saveDeptSettings] 通信エラー:', error);
+        App.showToast('保存に失敗しました。入力内容を確認してください', 'error');
+      }
+
+      if (isNew) {
+        // 新規追加
+        google.script.run
+          .withSuccessHandler(onSuccess)
+          .withFailureHandler(onFailure)
+          .addDept(patch);
+      } else {
+        // 既存更新
+        google.script.run
+          .withSuccessHandler(onSuccess)
+          .withFailureHandler(onFailure)
+          .updateDeptSettings(editingDeptId, patch);
+      }
     }
 
     /**
@@ -1696,6 +1801,8 @@
       // 部署設定
       showDeptList: showDeptList,
       closeDeptListModal: closeDeptListModal,
+      openNewDeptModal: openNewDeptModal,
+      confirmDeleteDept: confirmDeleteDept,
       openDeptEdit: openDeptEdit,
       closeDeptModal: closeDeptModal,
       toggleMeetUrlField: toggleMeetUrlField,

@@ -1086,6 +1086,91 @@ function updateDeptSettings(deptId, patch) {
   }
 }
 
+/**
+ * 部署を新規追加（管理者用）
+ * @param {Object} deptData - 部署データ
+ * @returns {Object} { success, deptId?, error? }
+ */
+function addDept(deptData) {
+  try {
+    // 管理者権限チェック
+    AuthService.assertAdmin();
+
+    // バリデーション
+    if (!deptData.name || !deptData.name.trim()) {
+      return { success: false, error: '部署表示名を入力してください。' };
+    }
+
+    // chat_url のバリデーション
+    if (deptData.chat_url && deptData.chat_url.trim() && !deptData.chat_url.startsWith('https://')) {
+      return { success: false, error: 'Chat URLはhttps://で始めてください。' };
+    }
+
+    // meet_url のバリデーション
+    if (deptData.meet_mode === '常設URL' && deptData.meet_url && !deptData.meet_url.includes('meet.google.com')) {
+      return { success: false, error: 'Meet URLにmeet.google.comを含めてください。' };
+    }
+
+    // シートに追加
+    var deptId = SheetService.addDeptRow(deptData);
+
+    // ログ記録
+    LogService.logEvent({
+      type: 'AdminAddDept',
+      action: 'addDept',
+      toDeptId: deptId,
+      status: 'Done',
+      note: JSON.stringify(deptData)
+    });
+
+    return { success: true, deptId: deptId };
+
+  } catch (e) {
+    console.error('addDept エラー:', e);
+    return {
+      success: false,
+      error: e.message || '部署の追加に失敗しました。'
+    };
+  }
+}
+
+/**
+ * 部署を削除（管理者用）
+ * @param {string} deptId - 部署ID
+ * @returns {Object} { success, error? }
+ */
+function deleteDept(deptId) {
+  try {
+    // 管理者権限チェック
+    AuthService.assertAdmin();
+
+    if (!deptId) {
+      return { success: false, error: '部署IDが指定されていません。' };
+    }
+
+    // シートから削除
+    SheetService.deleteDeptRow(deptId);
+
+    // ログ記録
+    LogService.logEvent({
+      type: 'AdminDeleteDept',
+      action: 'deleteDept',
+      toDeptId: deptId,
+      status: 'Done',
+      note: ''
+    });
+
+    return { success: true };
+
+  } catch (e) {
+    console.error('deleteDept エラー:', e);
+    return {
+      success: false,
+      error: e.message || '部署の削除に失敗しました。'
+    };
+  }
+}
+
 // ============================================
 // Sprint 4: 自動化トリガー関数
 // ============================================

@@ -349,6 +349,132 @@ var SheetService = (function() {
     console.log('[updateDeptRow] 完了');
   }
 
+  /**
+   * 部署を新規追加（管理者機能）
+   * @param {Object} deptData - 部署データ
+   * @returns {string} 生成されたdept_id
+   */
+  function addDeptRow(deptData) {
+    console.log('[addDeptRow] deptData:', JSON.stringify(deptData));
+    var sheet = getSheet(Config.SHEET_DEPT);
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var colMap = buildColumnMap(headers);
+
+    // 新しい行番号（ヘッダー + 既存データ行 + 1）
+    var newRowNum = data.length;
+
+    // dept_id を生成
+    var deptId = 'dept_' + newRowNum + '_' + (deptData.name || '').replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
+
+    // 新しい行データを作成（ヘッダーの順序に従う）
+    var newRow = [];
+    for (var i = 0; i < headers.length; i++) {
+      var header = String(headers[i]).trim();
+      var value = '';
+
+      switch (header) {
+        case 'dept_id':
+        case '部署ID':
+          value = deptId;
+          break;
+        case '部署表示名':
+          value = deptData.name || '';
+          break;
+        case '拠点':
+          value = deptData.site || '';
+          break;
+        case '表示順':
+          value = deptData.order || 999;
+          break;
+        case '有効(Y/N)':
+          value = deptData.enabled || 'Y';
+          break;
+        case 'Chat URL (任意)':
+          value = deptData.chat_url || '';
+          break;
+        case 'ChatスペースID (spaces/...)':
+          value = deptData.chat_space_id || '';
+          break;
+        case '通知先ChatスペースID':
+          value = deptData.notify_space_id || '';
+          break;
+        case 'Meet利用':
+          value = deptData.meet_mode || '常設URL';
+          break;
+        case '常設Meet URL (任意)':
+          value = deptData.meet_url || '';
+          break;
+        case '説明/メモ':
+          value = deptData.note || '';
+          break;
+        default:
+          value = '';
+      }
+      newRow.push(value);
+    }
+
+    // 行を追加
+    sheet.appendRow(newRow);
+    console.log('[addDeptRow] 完了: deptId=', deptId);
+
+    // キャッシュをクリア
+    clearDeptCache();
+
+    return deptId;
+  }
+
+  /**
+   * 部署を削除（管理者機能）
+   * @param {string} deptId - 部署ID
+   */
+  function deleteDeptRow(deptId) {
+    console.log('[deleteDeptRow] deptId:', deptId);
+    var sheet = getSheet(Config.SHEET_DEPT);
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var colMap = buildColumnMap(headers);
+
+    // ★ dept_idカラムを探す（複数のカラム名に対応）
+    var deptIdCol = colMap['dept_id'];
+    if (deptIdCol === undefined) {
+      deptIdCol = colMap['部署ID'];
+    }
+
+    var targetRowIndex = -1;
+
+    // ★ 生成されたID（dept_N_xxx形式）の場合、行番号を抽出
+    if (deptId && deptId.startsWith('dept_')) {
+      var match = deptId.match(/^dept_(\d+)_/);
+      if (match) {
+        var rowNum = parseInt(match[1], 10);
+        targetRowIndex = rowNum;  // data配列での行番号
+        console.log('[deleteDeptRow] 生成IDから行番号を抽出:', targetRowIndex);
+      }
+    }
+
+    // dept_idカラムがある場合は、そのカラムで検索
+    if (targetRowIndex === -1 && deptIdCol !== undefined) {
+      for (var i = 1; i < data.length; i++) {
+        if (data[i][deptIdCol] === deptId) {
+          targetRowIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (targetRowIndex === -1) {
+      throw new Error('部署が見つかりません: ' + deptId);
+    }
+
+    // 行を削除（シートは1始まり）
+    sheet.deleteRow(targetRowIndex + 1);
+    console.log('[deleteDeptRow] 完了: row=', targetRowIndex + 1);
+
+    // キャッシュをクリア
+    clearDeptCache();
+  }
+
   // ============================================
   // メモ関連
   // ============================================
@@ -635,6 +761,8 @@ var SheetService = (function() {
     getDeptNameMap: getDeptNameMap,
     clearDeptCache: clearDeptCache,
     updateDeptRow: updateDeptRow,
+    addDeptRow: addDeptRow,
+    deleteDeptRow: deleteDeptRow,
     createMemo: createMemo,
     listMemos: listMemos,
     getMemoDetail: getMemoDetail,
