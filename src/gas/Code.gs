@@ -1176,6 +1176,21 @@ function deleteDept(deptId) {
 // ============================================
 
 /**
+ * Lookupデータを再取得（キャッシュクリア後に最新を返す）
+ * @returns {Object} { success, data: lookup }
+ */
+function reloadLookup() {
+  try {
+    LookupService.clearCache();
+    var lookup = LookupService.getLookup();
+    return { success: true, data: lookup };
+  } catch (e) {
+    console.error('reloadLookup エラー:', e);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
  * 拠点一覧を取得（管理者用）
  * @returns {Object} { success, data: [{value, order}, ...] }
  */

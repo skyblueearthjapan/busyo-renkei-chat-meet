@@ -667,9 +667,34 @@
     function getDepts() { return state.depts; }
     function setDepts(depts) { state.depts = depts || []; }
     function getLookup() { return state.lookup; }
+    function setLookup(lookup) { state.lookup = lookup || {}; }
     function getUser() { return state.user; }
     function getFavorites() { return state.favorites; }
     function setFavorites(favSet) { state.favorites = favSet; }
+
+    /**
+     * Lookupデータをサーバーから再取得して更新
+     * @param {Function} callback - 完了後のコールバック
+     */
+    function reloadLookup(callback) {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            state.lookup = result.data;
+            console.log('[reloadLookup] Lookup更新完了:', result.data);
+            // Home画面のフィルターチップを再描画
+            if (typeof Home !== 'undefined' && Home.renderSiteChips) {
+              Home.renderSiteChips();
+            }
+          }
+          if (callback) callback(result);
+        })
+        .withFailureHandler(function(error) {
+          console.error('[reloadLookup] エラー:', error);
+          if (callback) callback({ success: false, error: error });
+        })
+        .reloadLookup();
+    }
 
     function getDeptById(deptId) {
       for (var i = 0; i < state.depts.length; i++) {
@@ -740,6 +765,8 @@
       getDepts: getDepts,
       setDepts: setDepts,
       getLookup: getLookup,
+      setLookup: setLookup,
+      reloadLookup: reloadLookup,  // Lookup再取得
       getUser: getUser,
       getFavorites: getFavorites,
       setFavorites: setFavorites,
@@ -1264,7 +1291,8 @@
       copyMeetLink: copyMeetLink,
       retryNotification: retryNotification,
       openChatFromModal: openChatFromModal,
-      renderDeptList: renderDeptList  // 部署リスト再描画（外部から呼び出し用）
+      renderDeptList: renderDeptList,  // 部署リスト再描画（外部から呼び出し用）
+      renderSiteChips: renderSiteChips  // 拠点フィルターチップ再描画（外部から呼び出し用）
     };
   })();
 
@@ -1925,6 +1953,7 @@
             App.showToast('拠点を追加しました', 'success');
             nameInput.value = '';
             showSiteList();  // リスト更新
+            App.reloadLookup();  // ★ Lookupを再取得してHomeフィルターも更新
           } else {
             App.showToast(result.error || '追加に失敗しました', 'error');
           }
@@ -1973,6 +2002,7 @@
             App.showToast('拠点を保存しました', 'success');
             closeSiteEditModal();
             showSiteList();  // リスト更新
+            App.reloadLookup();  // ★ Lookupを再取得してHomeフィルターも更新
           } else {
             App.showToast(result.error || '保存に失敗しました', 'error');
           }
@@ -2006,6 +2036,7 @@
           if (result.success) {
             App.showToast('拠点を削除しました', 'success');
             showSiteList();  // リスト更新
+            App.reloadLookup();  // ★ Lookupを再取得してHomeフィルターも更新
           } else {
             App.showToast(result.error || '削除に失敗しました', 'error');
           }
