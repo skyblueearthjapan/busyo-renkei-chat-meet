@@ -1525,6 +1525,10 @@
     function openDeptEdit(deptId) {
       console.log('[openDeptEdit] deptId:', deptId);
       editingDeptId = deptId;
+
+      // ★ 部署一覧モーダルを閉じる（編集の邪魔にならないよう）
+      document.getElementById('dept-list-modal').classList.add('hidden');
+
       // adminDeptsから検索（無効部署も含む）
       var dept = null;
       for (var i = 0; i < adminDepts.length; i++) {
