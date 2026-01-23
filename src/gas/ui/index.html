@@ -129,6 +129,13 @@
           <button type="button" class="btn btn-secondary" onclick="Settings.showDeptList()">部署一覧を表示</button>
         </div>
 
+        <!-- 拠点設定 -->
+        <div class="settings-card" style="margin-bottom:16px;">
+          <h4 style="font-size:0.9rem; margin-bottom:8px;">🏢 拠点設定</h4>
+          <p style="font-size:0.8rem; color:#666; margin-bottom:8px;">拠点（工場/事業所など）を管理できます</p>
+          <button type="button" class="btn btn-secondary" onclick="Settings.showSiteList()">拠点一覧を表示</button>
+        </div>
+
         <!-- 診断 -->
         <div class="settings-card" style="margin-bottom:16px;">
           <h4 style="font-size:0.9rem; margin-bottom:8px;">🔍 診断</h4>
@@ -319,6 +326,54 @@
         <div id="admin-dept-list">
           <!-- 動的に部署リストが挿入される -->
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 拠点一覧モーダル -->
+  <div id="site-list-modal" class="modal hidden">
+    <div class="modal-content" style="max-width:500px; max-height:80vh;">
+      <div class="modal-header">
+        <h3>拠点設定一覧</h3>
+        <button class="modal-close" onclick="Settings.closeSiteListModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="max-height:60vh; overflow-y:auto;">
+        <!-- 新規追加フォーム -->
+        <div style="margin-bottom:16px; padding:12px; background:#F3F4F6; border-radius:8px;">
+          <h4 style="font-size:0.85rem; margin-bottom:8px;">➕ 新規拠点を追加</h4>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="new-site-name" class="form-input" placeholder="拠点名（例：本社、A工場）" style="flex:1;">
+            <button type="button" class="btn btn-primary" onclick="Settings.addSite()">追加</button>
+          </div>
+        </div>
+        <div id="admin-site-list">
+          <!-- 動的に拠点リストが挿入される -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 拠点編集モーダル -->
+  <div id="site-edit-modal" class="modal hidden">
+    <div class="modal-content" style="max-width:400px;">
+      <div class="modal-header">
+        <h3>拠点を編集</h3>
+        <button type="button" class="modal-close" onclick="Settings.closeSiteEditModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-site-old-name">
+        <div class="form-group">
+          <label class="form-label">拠点名</label>
+          <input type="text" id="edit-site-name" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">表示順</label>
+          <input type="number" id="edit-site-order" class="form-input" min="1" max="9999">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="Settings.closeSiteEditModal()">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="Settings.saveSite()">保存する</button>
       </div>
     </div>
   </div>
@@ -1785,6 +1840,184 @@
       App.showToast('Meet URLを開きました', 'success');
     }
 
+    // ====== 拠点設定 ======
+    var adminSites = [];  // 拠点リスト
+
+    /**
+     * 拠点一覧を表示
+     */
+    function showSiteList() {
+      console.log('[showSiteList] 拠点一覧を取得開始');
+      App.showLoading('読み込んでいます...');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          console.log('[showSiteList] result:', result);
+          if (result.success) {
+            adminSites = result.data || [];
+            renderSiteList(adminSites);
+            document.getElementById('site-list-modal').classList.remove('hidden');
+          } else {
+            console.error('[showSiteList] エラー:', result.error);
+            App.showToast('読み込みに失敗しました', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          console.error('[showSiteList] 通信エラー:', error);
+          App.showToast('読み込みに失敗しました', 'error');
+        })
+        .listSites();
+    }
+
+    function renderSiteList(sites) {
+      var container = document.getElementById('admin-site-list');
+      if (!container) return;
+
+      if (sites.length === 0) {
+        container.innerHTML = '<p style="color:#666; text-align:center; padding:16px;">拠点がまだ登録されていません</p>';
+        return;
+      }
+
+      container.innerHTML = sites.map(function(site, index) {
+        return '<div class="settings-card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:12px;">' +
+          '<div style="flex:1;">' +
+            '<div style="font-weight:bold;">' + App.escapeHtml(site.value) + '</div>' +
+            '<div style="font-size:0.8rem;color:#666;">表示順: ' + (site.order || 999) + '</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:4px;">' +
+            '<button class="btn btn-secondary btn-small" onclick="Settings.openSiteEdit(\'' + App.escapeHtml(site.value) + '\', ' + (site.order || 999) + ')" title="編集">✏️</button>' +
+            '<button class="btn btn-danger btn-small" onclick="Settings.confirmDeleteSite(\'' + App.escapeHtml(site.value) + '\')" title="削除" style="background:#DC2626;color:white;">🗑️</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    function closeSiteListModal() {
+      document.getElementById('site-list-modal').classList.add('hidden');
+    }
+
+    /**
+     * 新規拠点を追加
+     */
+    function addSite() {
+      var nameInput = document.getElementById('new-site-name');
+      var name = nameInput.value.trim();
+
+      if (!name) {
+        App.showToast('拠点名を入力してください', 'error');
+        return;
+      }
+
+      // 重複チェック
+      for (var i = 0; i < adminSites.length; i++) {
+        if (adminSites[i].value === name) {
+          App.showToast('同じ名前の拠点が既に存在します', 'error');
+          return;
+        }
+      }
+
+      App.showLoading('追加しています...');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          if (result.success) {
+            App.showToast('拠点を追加しました', 'success');
+            nameInput.value = '';
+            showSiteList();  // リスト更新
+          } else {
+            App.showToast(result.error || '追加に失敗しました', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('追加に失敗しました', 'error');
+          console.error(error);
+        })
+        .addSite({ name: name, order: 999 });
+    }
+
+    /**
+     * 拠点編集モーダルを開く
+     */
+    function openSiteEdit(siteName, order) {
+      document.getElementById('edit-site-old-name').value = siteName;
+      document.getElementById('edit-site-name').value = siteName;
+      document.getElementById('edit-site-order').value = order || 999;
+      document.getElementById('site-list-modal').classList.add('hidden');
+      document.getElementById('site-edit-modal').classList.remove('hidden');
+    }
+
+    function closeSiteEditModal() {
+      document.getElementById('site-edit-modal').classList.add('hidden');
+    }
+
+    /**
+     * 拠点を保存（更新）
+     */
+    function saveSite() {
+      var oldName = document.getElementById('edit-site-old-name').value;
+      var newName = document.getElementById('edit-site-name').value.trim();
+      var order = parseInt(document.getElementById('edit-site-order').value, 10) || 999;
+
+      if (!newName) {
+        App.showToast('拠点名を入力してください', 'error');
+        return;
+      }
+
+      App.showLoading('保存しています...');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          if (result.success) {
+            App.showToast('拠点を保存しました', 'success');
+            closeSiteEditModal();
+            showSiteList();  // リスト更新
+          } else {
+            App.showToast(result.error || '保存に失敗しました', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('保存に失敗しました', 'error');
+          console.error(error);
+        })
+        .updateSite({ oldName: oldName, newName: newName, order: order });
+    }
+
+    /**
+     * 拠点削除確認
+     */
+    function confirmDeleteSite(siteName) {
+      if (!confirm('「' + siteName + '」を削除しますか？\n\nこの拠点を使用している部署がある場合、その部署の拠点は空欄になります。')) {
+        return;
+      }
+      deleteSite(siteName);
+    }
+
+    /**
+     * 拠点を削除
+     */
+    function deleteSite(siteName) {
+      App.showLoading('削除しています...');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          App.hideLoading();
+          if (result.success) {
+            App.showToast('拠点を削除しました', 'success');
+            showSiteList();  // リスト更新
+          } else {
+            App.showToast(result.error || '削除に失敗しました', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          App.hideLoading();
+          App.showToast('削除に失敗しました', 'error');
+          console.error(error);
+        })
+        .deleteSite(siteName);
+    }
+
     return {
       init: init,
       checkAdmin: checkAdmin,
@@ -1809,7 +2042,15 @@
       saveDeptSettings: saveDeptSettings,
       // テスト（保存前URL確認）
       testChatUrl: testChatUrl,
-      testMeetUrl: testMeetUrl
+      testMeetUrl: testMeetUrl,
+      // 拠点設定
+      showSiteList: showSiteList,
+      closeSiteListModal: closeSiteListModal,
+      addSite: addSite,
+      openSiteEdit: openSiteEdit,
+      closeSiteEditModal: closeSiteEditModal,
+      saveSite: saveSite,
+      confirmDeleteSite: confirmDeleteSite
     };
   })();
 

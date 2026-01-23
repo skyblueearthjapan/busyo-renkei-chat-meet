@@ -1172,6 +1172,112 @@ function deleteDept(deptId) {
 }
 
 // ============================================
+// 拠点（Site）管理 API
+// ============================================
+
+/**
+ * 拠点一覧を取得（管理者用）
+ * @returns {Object} { success, data: [{value, order}, ...] }
+ */
+function listSites() {
+  try {
+    AuthService.assertAdmin();
+    var sites = LookupService.listSites();
+    return { success: true, data: sites };
+  } catch (e) {
+    console.error('listSites エラー:', e);
+    return { success: false, error: e.message || '拠点一覧の取得に失敗しました。' };
+  }
+}
+
+/**
+ * 拠点を追加（管理者用）
+ * @param {Object} params - { name, order }
+ * @returns {Object} { success, error? }
+ */
+function addSite(params) {
+  try {
+    AuthService.assertAdmin();
+
+    if (!params.name || !params.name.trim()) {
+      return { success: false, error: '拠点名を入力してください。' };
+    }
+
+    LookupService.addSiteRow(params.name.trim(), params.order || 999);
+
+    LogService.logEvent({
+      type: 'AdminAddSite',
+      action: 'addSite',
+      status: 'Done',
+      note: params.name
+    });
+
+    return { success: true };
+  } catch (e) {
+    console.error('addSite エラー:', e);
+    return { success: false, error: e.message || '拠点の追加に失敗しました。' };
+  }
+}
+
+/**
+ * 拠点を更新（管理者用）
+ * @param {Object} params - { oldName, newName, order }
+ * @returns {Object} { success, error? }
+ */
+function updateSite(params) {
+  try {
+    AuthService.assertAdmin();
+
+    if (!params.newName || !params.newName.trim()) {
+      return { success: false, error: '拠点名を入力してください。' };
+    }
+
+    LookupService.updateSiteRow(params.oldName, params.newName.trim(), params.order || 999);
+
+    LogService.logEvent({
+      type: 'AdminUpdateSite',
+      action: 'updateSite',
+      status: 'Done',
+      note: params.oldName + ' → ' + params.newName
+    });
+
+    return { success: true };
+  } catch (e) {
+    console.error('updateSite エラー:', e);
+    return { success: false, error: e.message || '拠点の更新に失敗しました。' };
+  }
+}
+
+/**
+ * 拠点を削除（管理者用）
+ * @param {string} name - 拠点名
+ * @returns {Object} { success, error? }
+ */
+function deleteSite(name) {
+  try {
+    AuthService.assertAdmin();
+
+    if (!name) {
+      return { success: false, error: '拠点名が指定されていません。' };
+    }
+
+    LookupService.deleteSiteRow(name);
+
+    LogService.logEvent({
+      type: 'AdminDeleteSite',
+      action: 'deleteSite',
+      status: 'Done',
+      note: name
+    });
+
+    return { success: true };
+  } catch (e) {
+    console.error('deleteSite エラー:', e);
+    return { success: false, error: e.message || '拠点の削除に失敗しました。' };
+  }
+}
+
+// ============================================
 // Sprint 4: 自動化トリガー関数
 // ============================================
 
