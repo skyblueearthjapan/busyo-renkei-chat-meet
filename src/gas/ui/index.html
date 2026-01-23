@@ -59,139 +59,6 @@
       </div>
     </section>
 
-    <!-- ==================== HISTORY ==================== -->
-    <section id="page-history" class="page hidden" style="display:none;">
-      <div class="page-header">
-        <h2 class="page-title">履歴</h2>
-      </div>
-
-      <!-- ビューモード切替 -->
-      <div class="view-mode-toggle" style="display:flex; gap:8px; margin-bottom:12px; align-items:center;">
-        <span style="font-size:0.85rem; color:#666;">表示:</span>
-        <button type="button" class="chip active" data-view="simple" onclick="History.setViewMode('simple')">📱 かんたん</button>
-        <button type="button" class="chip" data-view="detail" onclick="History.setViewMode('detail')">🖥️ くわしく</button>
-      </div>
-
-      <!-- プリセットフィルタ -->
-      <div class="history-filter-chips filter-chips" style="margin-bottom:12px;">
-        <button type="button" class="chip active" data-preset="all" onclick="History.applyPreset('all')">すべて</button>
-        <button type="button" class="chip" data-preset="incomplete" onclick="History.applyPreset('incomplete')">未完了</button>
-        <button type="button" class="chip" data-preset="overdue" onclick="History.applyPreset('overdue')">⚠️ 期限切れ</button>
-        <button type="button" class="chip" data-preset="today" onclick="History.applyPreset('today')">今日</button>
-        <button type="button" class="chip" data-preset="week" onclick="History.applyPreset('week')">今週</button>
-        <button type="button" class="chip" data-preset="mine" onclick="History.applyPreset('mine')">自分の作成</button>
-      </div>
-
-      <!-- 詳細フィルタ -->
-      <div class="history-filters">
-        <select id="history-status-filter" class="filter-select">
-          <option value="">すべてのステータス</option>
-          <option value="Open">Open</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Done">Done</option>
-          <option value="Canceled">Canceled</option>
-        </select>
-        <select id="history-type-filter" class="filter-select">
-          <option value="">すべての種別</option>
-          <!-- 動的に設定 -->
-        </select>
-      </div>
-
-      <!-- メモリスト -->
-      <div id="memo-list" class="memo-list">
-        <!-- 動的にメモカードが挿入される -->
-      </div>
-    </section>
-
-    <!-- ==================== MEMO ==================== -->
-    <section id="page-memo" class="page hidden" style="display:none;">
-      <div class="page-header">
-        <h2 class="page-title">1分メモ</h2>
-      </div>
-
-      <form id="memo-form" class="memo-form">
-        <!-- 連携情報（イベントIDがある場合） -->
-        <div id="memo-link-info" class="link-info" style="display:none;">
-          <span class="link-icon">🔗</span>
-          <span id="memo-link-text"></span>
-        </div>
-
-        <!-- 発信部署 -->
-        <div class="form-group">
-          <label class="form-label">発信部署（あなたの部署）</label>
-          <select id="memo-from-dept" class="form-select">
-            <option value="">選択してください</option>
-          </select>
-        </div>
-
-        <!-- 宛先部署 -->
-        <div class="form-group">
-          <label class="form-label">宛先部署 <span class="required">*</span></label>
-          <select id="memo-to-dept" class="form-select" required>
-            <option value="">選択してください</option>
-          </select>
-        </div>
-
-        <!-- 問い合わせ種別 -->
-        <div class="form-group">
-          <label class="form-label">問い合わせ種別 <span class="required">*</span></label>
-          <select id="memo-issue-type" class="form-select" required>
-            <option value="">選択してください</option>
-          </select>
-        </div>
-
-        <!-- 要点 -->
-        <div class="form-group">
-          <label class="form-label">要点（短文） <span class="required">*</span></label>
-          <input type="text" id="memo-summary" class="form-input" placeholder="例：在庫確認の依頼" maxlength="100" required>
-        </div>
-
-        <!-- 決定事項/対応内容 -->
-        <div class="form-group">
-          <label class="form-label">決定事項/対応内容</label>
-          <textarea id="memo-decisions" class="form-textarea" rows="3" placeholder="決まったこと、対応することなど"></textarea>
-        </div>
-
-        <!-- 期限 -->
-        <div class="form-group">
-          <label class="form-label">期限</label>
-          <input type="date" id="memo-due-date" class="form-input">
-        </div>
-
-        <!-- 優先度 -->
-        <div class="form-group">
-          <label class="form-label">優先度</label>
-          <select id="memo-priority" class="form-select">
-            <option value="">選択してください</option>
-          </select>
-        </div>
-
-        <!-- 隠しフィールド -->
-        <input type="hidden" id="memo-event-id">
-
-        <!-- 送信ボタン -->
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary btn-large">💾 保存する</button>
-        </div>
-      </form>
-    </section>
-
-    <!-- ==================== DETAIL ==================== -->
-    <section id="page-detail" class="page hidden" style="display:none;">
-      <div class="page-header">
-        <h2 class="page-title">メモ詳細</h2>
-        <button class="btn btn-secondary btn-small" onclick="App.showPage('history')">← 戻る</button>
-      </div>
-
-      <div id="detail-content" class="detail-content">
-        <!-- 動的に詳細が挿入される -->
-      </div>
-
-      <div id="detail-actions" class="detail-actions" style="margin-top:16px;">
-        <!-- 編集・ステータス変更ボタンなど -->
-      </div>
-    </section>
-
     <!-- ==================== SETTINGS ==================== -->
     <section id="page-settings" class="page hidden" style="display:none;">
       <div class="page-header">
@@ -226,14 +93,6 @@
           </select>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">履歴の初期表示</label>
-          <select id="pref-history-mode" class="form-select">
-            <option value="simple">かんたん</option>
-            <option value="detail">くわしく</option>
-          </select>
-        </div>
-
         <div style="display:flex; gap:8px; margin-top:12px;">
           <button type="button" class="btn btn-primary" onclick="Settings.saveUserPrefs()">保存</button>
           <button type="button" class="btn btn-secondary" onclick="Settings.resetFavorites()">お気に入りを初期化</button>
@@ -255,12 +114,6 @@
             部署設定で「Chat URL」が設定されているか確認してください。
           </p>
         </details>
-        <details style="margin-bottom:8px;">
-          <summary style="cursor:pointer; font-size:0.85rem; color:#333;">メモが保存できない時</summary>
-          <p style="font-size:0.8rem; color:#666; margin-top:4px; padding-left:12px;">
-            必須項目（宛先部署・種別・要点）が入力されているか確認してください。
-          </p>
-        </details>
         <button type="button" class="btn btn-secondary" style="margin-top:8px;" onclick="Settings.runSimpleDiagnostics()">簡易診断を実行</button>
         <div id="simple-diagnostics-result" style="margin-top:8px;"></div>
       </div>
@@ -274,106 +127,6 @@
           <h4 style="font-size:0.9rem; margin-bottom:8px;">📋 部署設定</h4>
           <p style="font-size:0.8rem; color:#666; margin-bottom:8px;">部署のChat/Meet設定を編集できます</p>
           <button type="button" class="btn btn-secondary" onclick="Settings.showDeptList()">部署一覧を表示</button>
-        </div>
-
-        <!-- 自動化設定 -->
-        <div class="settings-card" style="margin-bottom:16px;">
-          <h4 style="font-size:0.9rem; margin-bottom:12px;">🤖 自動化設定</h4>
-
-          <!-- 回覧 -->
-          <div style="background:#F9FAFB; border-radius:8px; padding:12px; margin-bottom:12px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <input type="checkbox" id="auto-circ-enabled">
-              <label for="auto-circ-enabled" style="font-weight:500;">週次/月次回覧</label>
-            </div>
-            <div class="form-group" style="margin-bottom:8px;">
-              <label class="form-label" style="font-size:0.8rem;">頻度</label>
-              <select id="auto-circ-freq" class="form-select">
-                <option value="WEEKLY">毎週</option>
-                <option value="MONTHLY">毎月</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom:8px;">
-              <label class="form-label" style="font-size:0.8rem;">曜日/日</label>
-              <select id="auto-circ-day" class="form-select">
-                <option value="1">月曜/1日</option>
-                <option value="2">火曜/2日</option>
-                <option value="3">水曜/3日</option>
-                <option value="4">木曜/4日</option>
-                <option value="5">金曜/5日</option>
-                <option value="6">土曜/6日</option>
-                <option value="7">日曜/7日</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom:8px;">
-              <label class="form-label" style="font-size:0.8rem;">実行時刻</label>
-              <select id="auto-circ-hour" class="form-select">
-                <option value="8">8時</option>
-                <option value="9">9時</option>
-                <option value="10">10時</option>
-                <option value="17">17時</option>
-                <option value="18">18時</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom:8px;">
-              <label class="form-label" style="font-size:0.8rem;">投稿先スペースID</label>
-              <input type="text" id="auto-circ-space" class="form-input" placeholder="spaces/...">
-            </div>
-            <button type="button" class="btn btn-secondary btn-small" onclick="Settings.runTestCirculation()">テスト実行</button>
-          </div>
-
-          <!-- リマインダー -->
-          <div style="background:#F9FAFB; border-radius:8px; padding:12px; margin-bottom:12px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <input type="checkbox" id="auto-remind-enabled">
-              <label for="auto-remind-enabled" style="font-weight:500;">未完リマインド</label>
-            </div>
-            <div class="form-group" style="margin-bottom:8px;">
-              <label class="form-label" style="font-size:0.8rem;">頻度</label>
-              <select id="auto-remind-freq" class="form-select">
-                <option value="DAILY">毎日</option>
-                <option value="WEEKLY">毎週</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom:8px;">
-              <label class="form-label" style="font-size:0.8rem;">実行時刻</label>
-              <select id="auto-remind-hour" class="form-select">
-                <option value="8">8時</option>
-                <option value="9">9時</option>
-                <option value="10">10時</option>
-                <option value="17">17時</option>
-                <option value="18">18時</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom:8px;">
-              <label class="form-label" style="font-size:0.8rem;">投稿先スペースID</label>
-              <input type="text" id="auto-remind-space" class="form-input" placeholder="spaces/...">
-            </div>
-            <button type="button" class="btn btn-secondary btn-small" onclick="Settings.runTestReminder()">テスト実行</button>
-          </div>
-
-          <div style="display:flex; gap:8px;">
-            <button type="button" class="btn btn-primary" onclick="Settings.saveAutomationConfig()">自動化設定を保存</button>
-            <button type="button" class="btn btn-secondary" onclick="Settings.syncTriggers()">トリガー同期</button>
-          </div>
-          <div id="automation-result" style="margin-top:12px;"></div>
-        </div>
-
-        <!-- 回覧表生成（手動） -->
-        <div class="settings-card" style="margin-bottom:16px;">
-          <h4 style="font-size:0.9rem; margin-bottom:8px;">📎 回覧表生成（手動）</h4>
-          <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-            <button type="button" class="chip" data-period="week" onclick="Settings.selectPeriod('week')">今週</button>
-            <button type="button" class="chip" data-period="lastweek" onclick="Settings.selectPeriod('lastweek')">先週</button>
-            <button type="button" class="chip" data-period="month" onclick="Settings.selectPeriod('month')">今月</button>
-            <button type="button" class="chip" data-period="lastmonth" onclick="Settings.selectPeriod('lastmonth')">先月</button>
-          </div>
-          <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
-            <button type="button" class="chip active" data-status="all" onclick="Settings.selectStatus('all')">すべて</button>
-            <button type="button" class="chip" data-status="incomplete" onclick="Settings.selectStatus('incomplete')">未完了のみ</button>
-          </div>
-          <button type="button" class="btn btn-primary" onclick="Settings.generateCirculation()">📊 回覧表を生成</button>
-          <div id="circulation-result" style="margin-top:12px;"></div>
         </div>
 
         <!-- 診断 -->
@@ -400,20 +153,12 @@
   </main>
 
   <!-- ============================================ -->
-  <!-- 下部タブナビゲーション -->
+  <!-- 下部タブナビゲーション（2ボタン：Home/Settings） -->
   <!-- ============================================ -->
-  <nav class="tab-nav">
+  <nav class="tab-nav" style="justify-content:center; gap:32px;">
     <button type="button" class="tab-btn active" data-page="home" onclick="App.showPage('home')">
       <span class="tab-icon">🏠</span>
       <span class="tab-label">ホーム</span>
-    </button>
-    <button type="button" class="tab-btn" data-page="history" onclick="App.showPage('history')">
-      <span class="tab-icon">📋</span>
-      <span class="tab-label">履歴</span>
-    </button>
-    <button type="button" class="tab-btn" data-page="memo" onclick="App.showPage('memo')">
-      <span class="tab-icon">📝</span>
-      <span class="tab-label">メモ</span>
     </button>
     <button type="button" class="tab-btn" data-page="settings" onclick="App.showPage('settings')">
       <span class="tab-icon">⚙️</span>
@@ -456,10 +201,6 @@
         </p>
       </div>
       <div class="modal-actions" style="flex-direction:column; gap:8px;">
-        <button class="btn btn-primary btn-large" onclick="Home.openMemoFromMeet()">
-          📝 メモを書く
-        </button>
-
         <!-- 通知失敗/スキップ時に表示するフォールバックボタン -->
         <div id="fallback-actions" style="display:none; width:100%;">
           <div style="display:flex; gap:8px; width:100%; margin-bottom:8px;">
@@ -675,8 +416,6 @@
 
         // 各モジュールを初期化（データ準備のみ、レンダリングはまだ）
         Home.init();
-        History.init();
-        Memo.init();
         Settings.init();
 
         // 初期ページを表示
@@ -747,12 +486,6 @@
         // ページ固有のデータロード（初回 or 毎回）
         if (page === 'home') {
           // Homeは init() でロード済み
-        } else if (page === 'history') {
-          History.loadMemos();
-        } else if (page === 'memo') {
-          Memo.setupForm();
-        } else if (page === 'detail' && INITIAL_PARAMS.memo_id) {
-          Detail.loadDetail(INITIAL_PARAMS.memo_id);
         } else if (page === 'settings') {
           Settings.checkAdmin();
         }
@@ -1380,15 +1113,6 @@
       currentMeetData = null;
     }
 
-    function openMemoFromMeet() {
-      if (currentMeetData) {
-        INITIAL_PARAMS.event_id = currentMeetData.eventId;
-        INITIAL_PARAMS.to = currentMeetData.deptId || '';
-        App.showPage('memo');
-      }
-      closeMeetModal();
-    }
-
     function copyMeetLink() {
       if (!currentMeetData) return;
       var meetUrl = currentMeetData.meetingUri || currentMeetData.meetUrl;
@@ -1476,7 +1200,6 @@
       handleChat: handleChat,
       handleMeet: handleMeet,
       closeMeetModal: closeMeetModal,
-      openMemoFromMeet: openMemoFromMeet,
       copyMeetLink: copyMeetLink,
       retryNotification: retryNotification,
       openChatFromModal: openChatFromModal,
@@ -1485,399 +1208,9 @@
   })();
 
   // ============================================
-  // History モジュール
-  // ============================================
-  var History = (function() {
-    var currentPreset = 'all';
-    var currentViewMode = 'simple';
-    var cachedMemos = [];
-
-    function init() {
-      setupFilters();
-      bindEvents();
-    }
-
-    function setupFilters() {
-      var typeFilter = document.getElementById('history-type-filter');
-      if (typeFilter) {
-        var lookup = App.getLookup();
-        var issueTypes = lookup.IssueType || [];
-        issueTypes.forEach(function(type) {
-          var option = document.createElement('option');
-          option.value = type;
-          option.textContent = type;
-          typeFilter.appendChild(option);
-        });
-      }
-    }
-
-    function bindEvents() {
-      var statusFilter = document.getElementById('history-status-filter');
-      var typeFilter = document.getElementById('history-type-filter');
-      if (statusFilter) {
-        statusFilter.addEventListener('change', function() {
-          currentPreset = '';
-          clearPresetChips();
-          loadMemos();
-        });
-      }
-      if (typeFilter) {
-        typeFilter.addEventListener('change', function() {
-          currentPreset = '';
-          clearPresetChips();
-          loadMemos();
-        });
-      }
-    }
-
-    function applyPreset(preset) {
-      currentPreset = preset;
-      document.querySelectorAll('.history-filter-chips .chip').forEach(function(chip) {
-        chip.classList.toggle('active', chip.getAttribute('data-preset') === preset);
-      });
-      document.getElementById('history-status-filter').value = '';
-      document.getElementById('history-type-filter').value = '';
-      loadMemos();
-    }
-
-    function clearPresetChips() {
-      document.querySelectorAll('.history-filter-chips .chip').forEach(function(chip) {
-        chip.classList.remove('active');
-      });
-    }
-
-    function setViewMode(mode) {
-      currentViewMode = mode;
-      document.querySelectorAll('.view-mode-toggle .chip').forEach(function(chip) {
-        chip.classList.toggle('active', chip.getAttribute('data-view') === mode);
-      });
-      if (cachedMemos.length > 0) {
-        renderMemoList(cachedMemos);
-      }
-    }
-
-    function loadMemos() {
-      var statusFilter = document.getElementById('history-status-filter');
-      var typeFilter = document.getElementById('history-type-filter');
-
-      var filters = {
-        status: statusFilter ? statusFilter.value : '',
-        issueType: typeFilter ? typeFilter.value : '',
-        limit: 50
-      };
-
-      if (currentPreset === 'incomplete') filters.incomplete = true;
-      else if (currentPreset === 'overdue') filters.overdue = true;
-      else if (currentPreset === 'today') filters.dateRange = 'today';
-      else if (currentPreset === 'week') filters.dateRange = 'week';
-      else if (currentPreset === 'mine') filters.createdByMe = true;
-
-      App.showLoading('履歴を読み込んでいます...');
-
-      google.script.run
-        .withSuccessHandler(function(result) {
-          App.hideLoading();
-          if (result.success) {
-            renderMemoList(result.data);
-          } else {
-            App.showToast(result.error || '履歴の読み込みに失敗しました', 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          App.hideLoading();
-          App.showToast('エラーが発生しました', 'error');
-          console.error(error);
-        })
-        .listMemos(filters);
-    }
-
-    function renderMemoList(memos) {
-      var container = document.getElementById('memo-list');
-      if (!container) return;
-      cachedMemos = memos || [];
-
-      if (!memos || memos.length === 0) {
-        container.innerHTML = '<div class="empty-state">' +
-          '<div class="empty-icon">📋</div>' +
-          '<p class="empty-text">履歴がありません</p>' +
-          '</div>';
-        return;
-      }
-
-      container.innerHTML = memos.map(function(memo) {
-        return currentViewMode === 'simple' ? renderSimpleCard(memo) : renderDetailCard(memo);
-      }).join('');
-    }
-
-    function renderSimpleCard(memo) {
-      var statusClass = App.getStatusClass(memo.status);
-      var overdueHtml = isOverdue(memo)
-        ? '<span class="overdue-badge" style="background:#dc3545;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:6px;">⚠️ 期限切れ</span>'
-        : '';
-      return '<div class="memo-card" onclick="History.openDetail(\'' + App.escapeHtml(memo.memo_id) + '\')">' +
-        '<div class="memo-header">' +
-          '<span class="memo-date">' + App.formatDate(memo.created_at) + '</span>' +
-          '<span class="status-badge ' + statusClass + '">' + App.escapeHtml(memo.status) + '</span>' +
-          overdueHtml +
-        '</div>' +
-        '<div class="memo-route">' + App.escapeHtml(memo.from_dept_name || '?') + ' → ' + App.escapeHtml(memo.to_dept_name || '?') + '</div>' +
-        '<div class="memo-summary">' + App.escapeHtml(memo.summary || '') + '</div>' +
-        '<div class="memo-footer"><span class="memo-type">' + App.escapeHtml(memo.issue_type || '') + '</span></div>' +
-      '</div>';
-    }
-
-    function renderDetailCard(memo) {
-      var statusClass = App.getStatusClass(memo.status);
-      var overdueHtml = isOverdue(memo)
-        ? '<span class="overdue-badge" style="background:#dc3545;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:6px;">⚠️ 期限切れ</span>'
-        : '';
-      var dueDateStr = memo.due_date ? formatDueDate(memo.due_date) : '—';
-      var tagsHtml = memo.tags ? '<span style="color:#666;font-size:0.8rem;">🏷️ ' + App.escapeHtml(memo.tags) + '</span>' : '';
-      var attachHtml = memo.attachments ? '<span style="color:#666;font-size:0.8rem;">📎 あり</span>' : '';
-
-      return '<div class="memo-card memo-card-detail" onclick="History.openDetail(\'' + App.escapeHtml(memo.memo_id) + '\')">' +
-        '<div class="memo-header">' +
-          '<span class="memo-date">' + App.formatDate(memo.created_at) + '</span>' +
-          '<span class="status-badge ' + statusClass + '">' + App.escapeHtml(memo.status) + '</span>' +
-          overdueHtml +
-        '</div>' +
-        '<div class="memo-route">' + App.escapeHtml(memo.from_dept_name || '?') + ' → ' + App.escapeHtml(memo.to_dept_name || '?') + '</div>' +
-        '<div class="memo-summary">' + App.escapeHtml(memo.summary || '') + '</div>' +
-        '<div class="memo-detail-row" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;font-size:0.85rem;">' +
-          '<span style="color:#666;">📅 期限: ' + dueDateStr + '</span>' +
-          '<span style="color:#666;">👤 担当: ' + App.escapeHtml(memo.assignee || '—') + '</span>' +
-        '</div>' +
-        (memo.result ? '<div class="memo-result" style="margin-top:6px;font-size:0.85rem;color:#444;">📝 結果: ' + App.escapeHtml(memo.result) + '</div>' : '') +
-        '<div class="memo-footer" style="display:flex;gap:12px;align-items:center;">' +
-          '<span class="memo-type">' + App.escapeHtml(memo.issue_type || '') + '</span>' +
-          tagsHtml + attachHtml +
-        '</div>' +
-      '</div>';
-    }
-
-    function isOverdue(memo) {
-      if (memo.status === 'Done' || memo.status === 'Canceled') return false;
-      if (!memo.due_date) return false;
-      try {
-        var dueDate = new Date(memo.due_date);
-        var today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return dueDate < today;
-      } catch (e) {
-        return false;
-      }
-    }
-
-    function formatDueDate(dateStr) {
-      try {
-        var d = new Date(dateStr);
-        var today = new Date();
-        today.setHours(0, 0, 0, 0);
-        var diff = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
-        var dateText = (d.getMonth() + 1) + '/' + d.getDate();
-        if (diff < 0) return dateText + ' (' + Math.abs(diff) + '日超過)';
-        else if (diff === 0) return dateText + ' (今日)';
-        else if (diff === 1) return dateText + ' (明日)';
-        else if (diff <= 7) return dateText + ' (あと' + diff + '日)';
-        return dateText;
-      } catch (e) {
-        return dateStr;
-      }
-    }
-
-    function openDetail(memoId) {
-      INITIAL_PARAMS.memo_id = memoId;
-      App.showPage('detail');
-      Detail.loadDetail(memoId);
-    }
-
-    return {
-      init: init,
-      loadMemos: loadMemos,
-      openDetail: openDetail,
-      applyPreset: applyPreset,
-      setViewMode: setViewMode
-    };
-  })();
-
-  // ============================================
-  // Memo モジュール
-  // ============================================
-  var Memo = (function() {
-    function init() {
-      bindEvents();
-    }
-
-    function setupForm() {
-      App.populateDeptSelect('memo-from-dept', INITIAL_PARAMS.from || '');
-      App.populateDeptSelect('memo-to-dept', INITIAL_PARAMS.to || '');
-      App.populateLookupSelect('memo-issue-type', 'IssueType', '');
-      App.populateLookupSelect('memo-priority', 'Priority', '');
-
-      document.getElementById('memo-event-id').value = INITIAL_PARAMS.event_id || '';
-
-      if (INITIAL_PARAMS.event_id) {
-        var linkInfo = document.getElementById('memo-link-info');
-        var linkText = document.getElementById('memo-link-text');
-        if (linkInfo && linkText) {
-          linkInfo.style.display = 'block';
-          linkText.textContent = 'イベント ' + INITIAL_PARAMS.event_id + ' に紐付け';
-        }
-      }
-
-      // フォームリセット
-      document.getElementById('memo-summary').value = '';
-      document.getElementById('memo-decisions').value = '';
-      document.getElementById('memo-due-date').value = '';
-    }
-
-    function bindEvents() {
-      var form = document.getElementById('memo-form');
-      if (form) {
-        form.addEventListener('submit', function(e) {
-          e.preventDefault();
-          saveMemo();
-        });
-      }
-    }
-
-    function saveMemo() {
-      var memoPayload = {
-        from_dept_id: document.getElementById('memo-from-dept').value,
-        to_dept_id: document.getElementById('memo-to-dept').value,
-        issue_type: document.getElementById('memo-issue-type').value,
-        summary: document.getElementById('memo-summary').value.trim(),
-        decisions: document.getElementById('memo-decisions').value.trim(),
-        due_date: document.getElementById('memo-due-date').value,
-        priority: document.getElementById('memo-priority').value,
-        related_event_id: document.getElementById('memo-event-id').value
-      };
-
-      if (!memoPayload.to_dept_id || !memoPayload.issue_type || !memoPayload.summary) {
-        App.showToast('必須項目を入力してください', 'error');
-        return;
-      }
-
-      App.showLoading('保存しています...');
-
-      google.script.run
-        .withSuccessHandler(function(result) {
-          App.hideLoading();
-          if (result.success) {
-            App.showToast('メモを保存しました', 'success');
-            INITIAL_PARAMS.event_id = '';
-            INITIAL_PARAMS.to = '';
-            App.showPage('history');
-          } else {
-            App.showToast(result.error || '保存に失敗しました', 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          App.hideLoading();
-          App.showToast('保存に失敗しました', 'error');
-          console.error(error);
-        })
-        .createMemo(memoPayload);
-    }
-
-    return {
-      init: init,
-      setupForm: setupForm
-    };
-  })();
-
-  // ============================================
-  // Detail モジュール
-  // ============================================
-  var Detail = (function() {
-    var currentMemo = null;
-
-    function loadDetail(memoId) {
-      App.showLoading('読み込んでいます...');
-      google.script.run
-        .withSuccessHandler(function(result) {
-          App.hideLoading();
-          if (result.success) {
-            currentMemo = result.data;
-            renderDetail(result.data);
-          } else {
-            App.showToast(result.error || 'メモの取得に失敗しました', 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          App.hideLoading();
-          App.showToast('エラーが発生しました', 'error');
-          console.error(error);
-        })
-        .getMemoDetail(memoId);
-    }
-
-    function renderDetail(memo) {
-      var container = document.getElementById('detail-content');
-      if (!container) return;
-
-      var statusClass = App.getStatusClass(memo.status);
-
-      container.innerHTML =
-        '<div class="detail-header">' +
-          '<span class="status-badge ' + statusClass + '">' + App.escapeHtml(memo.status) + '</span>' +
-          '<span class="detail-date">' + App.formatDate(memo.created_at) + '</span>' +
-        '</div>' +
-        '<div class="detail-route">' +
-          App.escapeHtml(memo.from_dept_name || '?') + ' → ' + App.escapeHtml(memo.to_dept_name || '?') +
-        '</div>' +
-        '<div class="detail-section"><strong>種別:</strong> ' + App.escapeHtml(memo.issue_type || '') + '</div>' +
-        '<div class="detail-section"><strong>要点:</strong> ' + App.escapeHtml(memo.summary || '') + '</div>' +
-        (memo.decisions ? '<div class="detail-section"><strong>決定事項/対応内容:</strong><br>' + App.escapeHtml(memo.decisions) + '</div>' : '') +
-        (memo.due_date ? '<div class="detail-section"><strong>期限:</strong> ' + App.escapeHtml(memo.due_date) + '</div>' : '') +
-        (memo.owner ? '<div class="detail-section"><strong>担当者:</strong> ' + App.escapeHtml(memo.owner) + '</div>' : '') +
-        (memo.outcome ? '<div class="detail-section"><strong>結果:</strong> ' + App.escapeHtml(memo.outcome) + '</div>' : '') +
-        (memo.tags ? '<div class="detail-section"><strong>タグ:</strong> ' + App.escapeHtml(memo.tags) + '</div>' : '') +
-        (memo.attachments ? '<div class="detail-section"><strong>添付:</strong> ' + App.escapeHtml(memo.attachments) + '</div>' : '') +
-        '<div class="detail-meta">作成者: ' + App.escapeHtml(memo.creator_name || memo.creator_email || '') + '</div>';
-
-      // アクションボタン
-      var actions = document.getElementById('detail-actions');
-      if (actions) {
-        actions.innerHTML =
-          '<button class="btn btn-secondary" onclick="Detail.changeStatus(\'Done\')">✅ 完了にする</button>' +
-          '<button class="btn btn-secondary" onclick="Detail.changeStatus(\'In Progress\')">🔄 対応中にする</button>';
-      }
-    }
-
-    function changeStatus(newStatus) {
-      if (!currentMemo) return;
-      App.showLoading('更新しています...');
-      google.script.run
-        .withSuccessHandler(function(result) {
-          App.hideLoading();
-          if (result.success) {
-            App.showToast('ステータスを更新しました', 'success');
-            loadDetail(currentMemo.memo_id);
-          } else {
-            App.showToast(result.error || '更新に失敗しました', 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          App.hideLoading();
-          App.showToast('更新に失敗しました', 'error');
-          console.error(error);
-        })
-        .updateMemo(currentMemo.memo_id, { status: newStatus });
-    }
-
-    return {
-      loadDetail: loadDetail,
-      changeStatus: changeStatus
-    };
-  })();
-
-  // ============================================
   // Settings モジュール
   // ============================================
   var Settings = (function() {
-    var circulationPeriod = 'week';
-    var circulationStatus = 'all';
     var editingDeptId = null;
     var settingsData = null;
     var adminDepts = [];  // 管理者用部署リスト（無効含む）
@@ -1945,10 +1278,8 @@
       var prefs = data.userPrefs || {};
       var tabSelect = document.getElementById('pref-default-tab');
       var siteSelect = document.getElementById('pref-default-site');
-      var historySelect = document.getElementById('pref-history-mode');
 
       if (tabSelect) tabSelect.value = prefs.defaultTopTab || 'all';
-      if (historySelect) historySelect.value = prefs.historyMode || 'simple';
 
       // 拠点選択肢を動的追加
       if (siteSelect && data.lookup && data.lookup.Site) {
@@ -1960,32 +1291,6 @@
           if (prefs.defaultSite === site) opt.selected = true;
           siteSelect.appendChild(opt);
         });
-      }
-
-      // 自動化設定（管理者のみ）
-      if (data.automationConfig) {
-        var cfg = data.automationConfig;
-        var circEnabled = document.getElementById('auto-circ-enabled');
-        var circFreq = document.getElementById('auto-circ-freq');
-        var circDay = document.getElementById('auto-circ-day');
-        var circHour = document.getElementById('auto-circ-hour');
-        var circSpace = document.getElementById('auto-circ-space');
-
-        if (circEnabled) circEnabled.checked = (cfg.circulation_enabled === 'Y');
-        if (circFreq) circFreq.value = cfg.circulation_freq || 'WEEKLY';
-        if (circDay) circDay.value = cfg.circulation_day || '1';
-        if (circHour) circHour.value = cfg.circulation_hour || '9';
-        if (circSpace) circSpace.value = cfg.circulation_notify_space_id || '';
-
-        var remEnabled = document.getElementById('auto-remind-enabled');
-        var remFreq = document.getElementById('auto-remind-freq');
-        var remHour = document.getElementById('auto-remind-hour');
-        var remSpace = document.getElementById('auto-remind-space');
-
-        if (remEnabled) remEnabled.checked = (cfg.reminder_enabled === 'Y');
-        if (remFreq) remFreq.value = cfg.reminder_freq || 'DAILY';
-        if (remHour) remHour.value = cfg.reminder_hour || '9';
-        if (remSpace) remSpace.value = cfg.reminder_notify_space_id || '';
       }
     }
 
@@ -2007,8 +1312,7 @@
     function saveUserPrefs() {
       var patch = {
         defaultTopTab: document.getElementById('pref-default-tab').value,
-        defaultSite: document.getElementById('pref-default-site').value,
-        historyMode: document.getElementById('pref-history-mode').value
+        defaultSite: document.getElementById('pref-default-site').value
       };
 
       App.showLoading('保存しています...');
@@ -2048,119 +1352,6 @@
           console.error(error);
         })
         .resetUserFavorites();
-    }
-
-    // ====== 自動化設定（管理者） ======
-    function saveAutomationConfig() {
-      var patch = {
-        circulation_enabled: document.getElementById('auto-circ-enabled').checked ? 'Y' : 'N',
-        circulation_freq: document.getElementById('auto-circ-freq').value,
-        circulation_day: document.getElementById('auto-circ-day').value,
-        circulation_hour: document.getElementById('auto-circ-hour').value,
-        circulation_notify_space_id: document.getElementById('auto-circ-space').value.trim(),
-        reminder_enabled: document.getElementById('auto-remind-enabled').checked ? 'Y' : 'N',
-        reminder_freq: document.getElementById('auto-remind-freq').value,
-        reminder_hour: document.getElementById('auto-remind-hour').value,
-        reminder_notify_space_id: document.getElementById('auto-remind-space').value.trim()
-      };
-
-      App.showLoading('保存しています...');
-      google.script.run
-        .withSuccessHandler(function(result) {
-          App.hideLoading();
-          var resultDiv = document.getElementById('automation-result');
-          if (result && result.ok) {
-            App.showToast('自動化設定を保存しました', 'success');
-            if (resultDiv) resultDiv.innerHTML = '<p style="color:#059669;">✅ 設定を保存しました</p>';
-          } else {
-            App.showToast(result.error || '保存に失敗しました', 'error');
-            if (resultDiv) resultDiv.innerHTML = '<p style="color:#DC2626;">❌ ' + (result.error || '保存に失敗しました') + '</p>';
-          }
-        })
-        .withFailureHandler(function(error) {
-          App.hideLoading();
-          App.showToast('保存に失敗しました', 'error');
-          console.error(error);
-        })
-        .updateAutomationConfig(patch);
-    }
-
-    function syncTriggers() {
-      App.showLoading('トリガーを同期しています...');
-      google.script.run
-        .withSuccessHandler(function(result) {
-          App.hideLoading();
-          var resultDiv = document.getElementById('automation-result');
-          if (result && result.ok) {
-            var triggers = result.triggers || [];
-            var msg = '✅ トリガーを同期しました（' + triggers.length + '件）';
-            App.showToast(msg, 'success');
-            if (resultDiv) {
-              var html = '<p style="color:#059669;">' + msg + '</p>';
-              if (triggers.length > 0) {
-                html += '<ul style="font-size:0.8rem; color:#666; margin-top:4px;">';
-                triggers.forEach(function(t) {
-                  html += '<li>' + t.handler + ' (' + t.freq + ' ' + t.hour + '時)</li>';
-                });
-                html += '</ul>';
-              }
-              resultDiv.innerHTML = html;
-            }
-          } else {
-            App.showToast(result.error || '同期に失敗しました', 'error');
-            if (resultDiv) resultDiv.innerHTML = '<p style="color:#DC2626;">❌ ' + (result.error || '同期に失敗しました') + '</p>';
-          }
-        })
-        .withFailureHandler(function(error) {
-          App.hideLoading();
-          App.showToast('同期に失敗しました', 'error');
-          console.error(error);
-        })
-        .syncAutomationTriggers();
-    }
-
-    function runTestCirculation() {
-      App.showLoading('テスト回覧を実行しています...');
-      google.script.run
-        .withSuccessHandler(function(result) {
-          App.hideLoading();
-          var resultDiv = document.getElementById('automation-result');
-          if (result && result.ok) {
-            App.showToast('テスト回覧を送信しました', 'success');
-            if (resultDiv) resultDiv.innerHTML = '<p style="color:#059669;">✅ テスト回覧を送信しました</p>';
-          } else {
-            App.showToast(result.error || '送信に失敗しました', 'error');
-            if (resultDiv) resultDiv.innerHTML = '<p style="color:#DC2626;">❌ ' + (result.error || '送信に失敗しました') + '</p>';
-          }
-        })
-        .withFailureHandler(function(error) {
-          App.hideLoading();
-          App.showToast('テスト実行に失敗しました', 'error');
-          console.error(error);
-        })
-        .runTestCirculation();
-    }
-
-    function runTestReminder() {
-      App.showLoading('テストリマインダーを実行しています...');
-      google.script.run
-        .withSuccessHandler(function(result) {
-          App.hideLoading();
-          var resultDiv = document.getElementById('automation-result');
-          if (result && result.ok) {
-            App.showToast('テストリマインダーを送信しました', 'success');
-            if (resultDiv) resultDiv.innerHTML = '<p style="color:#059669;">✅ テストリマインダーを送信しました</p>';
-          } else {
-            App.showToast(result.error || '送信に失敗しました', 'error');
-            if (resultDiv) resultDiv.innerHTML = '<p style="color:#DC2626;">❌ ' + (result.error || '送信に失敗しました') + '</p>';
-          }
-        })
-        .withFailureHandler(function(error) {
-          App.hideLoading();
-          App.showToast('テスト実行に失敗しました', 'error');
-          console.error(error);
-        })
-        .runTestReminder();
     }
 
     // ====== 簡易診断（全ユーザー） ======
@@ -2209,73 +1400,6 @@
           console.error(error);
         })
         .listDepts({ forceRefresh: true });
-    }
-
-    function selectPeriod(period) {
-      circulationPeriod = period;
-      document.querySelectorAll('[data-period]').forEach(function(chip) {
-        chip.classList.toggle('active', chip.getAttribute('data-period') === period);
-      });
-    }
-
-    function selectStatus(status) {
-      circulationStatus = status;
-      document.querySelectorAll('[data-status]').forEach(function(chip) {
-        chip.classList.toggle('active', chip.getAttribute('data-status') === status);
-      });
-    }
-
-    function generateCirculation() {
-      var now = new Date();
-      var dateFrom, dateTo;
-
-      if (circulationPeriod === 'week') {
-        var dayOfWeek = now.getDay();
-        dateFrom = new Date(now.getTime() - dayOfWeek * 86400000);
-        dateTo = now;
-      } else if (circulationPeriod === 'lastweek') {
-        var dayOfWeek = now.getDay();
-        dateFrom = new Date(now.getTime() - (dayOfWeek + 7) * 86400000);
-        dateTo = new Date(now.getTime() - (dayOfWeek + 1) * 86400000);
-      } else if (circulationPeriod === 'month') {
-        dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
-        dateTo = now;
-      } else if (circulationPeriod === 'lastmonth') {
-        dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        dateTo = new Date(now.getFullYear(), now.getMonth(), 0);
-      }
-
-      var params = {
-        dateFrom: App.formatDateOnly(dateFrom),
-        dateTo: App.formatDateOnly(dateTo),
-        includeStatus: circulationStatus
-      };
-
-      App.showLoading('回覧表を生成しています...');
-
-      google.script.run
-        .withSuccessHandler(function(result) {
-          App.hideLoading();
-          var resultDiv = document.getElementById('circulation-result');
-          if (result.success) {
-            resultDiv.innerHTML =
-              '<div style="background:#ECFDF5;border:1px solid #6EE7B7;border-radius:8px;padding:12px;margin-top:8px;">' +
-              '<p style="color:#059669;margin:0 0 8px 0;">✅ ' + result.rows + '件を生成しました</p>' +
-              '<p style="font-size:0.8rem;color:#666;margin:0 0 8px 0;">期間: ' + result.period.from + ' 〜 ' + result.period.to + '</p>' +
-              '<a href="' + result.sheetUrl + '" target="_blank" class="btn btn-primary">📊 回覧表を開く</a>' +
-              '</div>';
-            App.showToast('回覧表を生成しました', 'success');
-          } else {
-            resultDiv.innerHTML = '<p style="color:#dc3545;">❌ ' + (result.error || '生成に失敗しました') + '</p>';
-            App.showToast(result.error || '生成に失敗しました', 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          App.hideLoading();
-          App.showToast('生成に失敗しました', 'error');
-          console.error(error);
-        })
-        .generateCirculation(params);
     }
 
     function runDiagnostics() {
@@ -2558,11 +1682,6 @@
       // 個人設定
       saveUserPrefs: saveUserPrefs,
       resetFavorites: resetFavorites,
-      // 自動化設定
-      saveAutomationConfig: saveAutomationConfig,
-      syncTriggers: syncTriggers,
-      runTestCirculation: runTestCirculation,
-      runTestReminder: runTestReminder,
       // 診断
       runSimpleDiagnostics: runSimpleDiagnostics,
       runDiagnostics: runDiagnostics,
@@ -2570,10 +1689,6 @@
       // キャッシュ/保守
       clearCache: clearCache,
       reloadMaster: reloadMaster,
-      // 回覧表生成
-      selectPeriod: selectPeriod,
-      selectStatus: selectStatus,
-      generateCirculation: generateCirculation,
       // 部署設定
       showDeptList: showDeptList,
       closeDeptListModal: closeDeptListModal,
