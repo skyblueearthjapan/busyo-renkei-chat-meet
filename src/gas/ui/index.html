@@ -652,6 +652,10 @@
     function init() {
       bindEvents();
       renderDeptList();
+
+      // 通話中インジケーター: 初回即時チェック + 15秒間隔ポーリング
+      pollActiveCalls();
+      setInterval(pollActiveCalls, 15000);
     }
 
     function bindEvents() {
@@ -675,10 +679,17 @@
       });
     }
 
+    // 現在通話中の部署IDセット
+    var activeCalls = {};
+
     function renderDeptCard(dept) {
-      return '<div class="dept-card" data-dept-id="' + App.escapeHtml(dept.dept_id) + '">' +
+      var isActive = activeCalls[dept.dept_id];
+      var activeClass = isActive ? ' call-active' : '';
+      var badge = isActive ? '<span class="call-badge">通話中</span>' : '';
+
+      return '<div class="dept-card' + activeClass + '" data-dept-id="' + App.escapeHtml(dept.dept_id) + '">' +
         '<div class="dept-info">' +
-          '<div class="dept-name">' + App.escapeHtml(dept.name) + '</div>' +
+          '<div class="dept-name">' + App.escapeHtml(dept.name) + badge + '</div>' +
           (dept.note ? '<div class="dept-description">' + App.escapeHtml(dept.note) + '</div>' : '') +
         '</div>' +
         '<div class="dept-actions">' +
@@ -687,6 +698,60 @@
           '</button>' +
         '</div>' +
       '</div>';
+    }
+
+    /**
+     * 特定の部署カードの通話中表示をDOM上で更新
+     */
+    function updateCardActiveState(deptId, isActive) {
+      var card = document.querySelector('.dept-card[data-dept-id="' + deptId + '"]');
+      if (!card) return;
+
+      if (isActive) {
+        card.classList.add('call-active');
+        activeCalls[deptId] = true;
+        // バッジがなければ追加
+        var nameEl = card.querySelector('.dept-name');
+        if (nameEl && !nameEl.querySelector('.call-badge')) {
+          nameEl.insertAdjacentHTML('beforeend', '<span class="call-badge">通話中</span>');
+        }
+      } else {
+        card.classList.remove('call-active');
+        delete activeCalls[deptId];
+        var badge = card.querySelector('.call-badge');
+        if (badge) badge.remove();
+      }
+    }
+
+    /**
+     * 通話中状態をポーリングして全カードを更新
+     */
+    function pollActiveCalls() {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result || !result.success) return;
+          var newActiveIds = result.activeIds || [];
+          var newActiveSet = {};
+          newActiveIds.forEach(function(id) { newActiveSet[id] = true; });
+
+          // 全部署カードを走査して更新
+          var allCards = document.querySelectorAll('.dept-card[data-dept-id]');
+          allCards.forEach(function(card) {
+            var deptId = card.getAttribute('data-dept-id');
+            var shouldBeActive = !!newActiveSet[deptId];
+            var currentlyActive = card.classList.contains('call-active');
+
+            if (shouldBeActive !== currentlyActive) {
+              updateCardActiveState(deptId, shouldBeActive);
+            }
+          });
+
+          activeCalls = newActiveSet;
+        })
+        .withFailureHandler(function(err) {
+          console.error('[pollActiveCalls] エラー:', err);
+        })
+        .getActiveCalls();
     }
 
     function renderDeptList() {
@@ -722,6 +787,15 @@
         console.log('[handleMeet] Opening meet URL:', dept.meet_url);
         window.open(dept.meet_url, '_blank');
         App.showToast(dept.name + ' のMeetを開きます', 'success');
+
+        // 通話中状態をサーバーに記録
+        google.script.run
+          .withSuccessHandler(function() {
+            // 即座にローカルでもカードを光らせる
+            updateCardActiveState(deptId, true);
+          })
+          .startMeetCall(deptId);
+
         // ログ記録
         google.script.run.logEvent({
           type: 'OpenMeet',

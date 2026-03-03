@@ -847,6 +847,46 @@ body {
 }
 
 /* ============================================
+   通話中インジケーター
+   ============================================ */
+.dept-card.call-active {
+  animation: callPulse 2s ease-in-out infinite;
+  border: 2px solid #34D399;
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.4);
+}
+
+.dept-card.call-active::before {
+  background: linear-gradient(180deg, #34D399 0%, #6EE7B7 100%);
+}
+
+@keyframes callPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(52, 211, 153, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(52, 211, 153, 0.6);
+  }
+}
+
+.call-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  margin-left: 8px;
+  background: #34D399;
+  color: #fff;
+  border-radius: var(--radius-full);
+  vertical-align: middle;
+  animation: badgeBlink 1.5s ease-in-out infinite;
+}
+
+@keyframes badgeBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ============================================
    レスポンシブ
    ============================================ */
 @media (max-width: 480px) {

@@ -1761,6 +1761,67 @@ function runTestReminder() {
  * 簡易診断を実行（一般ユーザー向け）
  * @returns {Object} { success, data }
  */
+// ============================================
+// Meet通話中インジケーター
+// ============================================
+
+/**
+ * Meet通話開始を記録（CacheServiceに60分TTLで保存）
+ * @param {string} deptId - 部署ID
+ * @returns {Object} 結果
+ */
+function startMeetCall(deptId) {
+  try {
+    var cache = CacheService.getScriptCache();
+    var user = Session.getActiveUser();
+    var email = user ? user.getEmail() : 'unknown';
+
+    var data = {
+      deptId: deptId,
+      userEmail: email,
+      startTime: new Date().toISOString()
+    };
+
+    cache.put('active_meet_' + deptId, JSON.stringify(data), 3600); // 60分TTL
+    return { success: true };
+  } catch (e) {
+    console.error('startMeetCall エラー:', e);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * 現在通話中の部署一覧を返す
+ * @returns {Object} 通話中の部署ID配列
+ */
+function getActiveCalls() {
+  try {
+    var cache = CacheService.getScriptCache();
+    var depts = getBootstrapData().depts || [];
+    var activeIds = [];
+
+    // 全部署のキーを一括取得
+    var keys = depts.map(function(d) { return 'active_meet_' + d.dept_id; });
+    var cached = cache.getAll(keys);
+
+    for (var key in cached) {
+      if (cached[key]) {
+        try {
+          var data = JSON.parse(cached[key]);
+          activeIds.push(data.deptId);
+        } catch (e) {
+          // パースエラーは無視
+        }
+      }
+    }
+
+    return { success: true, activeIds: activeIds };
+  } catch (e) {
+    console.error('getActiveCalls エラー:', e);
+    return { success: false, activeIds: [], error: e.message };
+  }
+}
+
 function runSimpleDiagnostics() {
   try {
     var results = {
