@@ -671,6 +671,8 @@
           try {
             if (action === 'meet') {
               handleMeet(deptId);
+            } else if (action === 'end-meet') {
+              handleEndMeet(deptId);
             }
           } catch (err) {
             App.showToast('エラーが発生しました: ' + err.message, 'error');
@@ -687,6 +689,10 @@
       var activeClass = isActive ? ' call-active' : '';
       var badge = isActive ? '<span class="call-badge">通話中</span>' : '';
 
+      var endBtn = isActive
+        ? '<button type="button" class="btn btn-end-call" data-action="end-meet" data-dept="' + App.escapeHtml(dept.dept_id) + '">終了</button>'
+        : '';
+
       return '<div class="dept-card' + activeClass + '" data-dept-id="' + App.escapeHtml(dept.dept_id) + '">' +
         '<div class="dept-info">' +
           '<div class="dept-name">' + App.escapeHtml(dept.name) + badge + '</div>' +
@@ -696,6 +702,7 @@
           '<button type="button" class="btn btn-meet" data-action="meet" data-dept="' + App.escapeHtml(dept.dept_id) + '">' +
             '📹 Meet' +
           '</button>' +
+          endBtn +
         '</div>' +
       '</div>';
     }
@@ -707,6 +714,8 @@
       var card = document.querySelector('.dept-card[data-dept-id="' + deptId + '"]');
       if (!card) return;
 
+      var actionsEl = card.querySelector('.dept-actions');
+
       if (isActive) {
         card.classList.add('call-active');
         activeCalls[deptId] = true;
@@ -715,11 +724,19 @@
         if (nameEl && !nameEl.querySelector('.call-badge')) {
           nameEl.insertAdjacentHTML('beforeend', '<span class="call-badge">通話中</span>');
         }
+        // 終了ボタンがなければ追加
+        if (actionsEl && !actionsEl.querySelector('[data-action="end-meet"]')) {
+          actionsEl.insertAdjacentHTML('beforeend',
+            '<button type="button" class="btn btn-end-call" data-action="end-meet" data-dept="' + deptId + '">終了</button>');
+        }
       } else {
         card.classList.remove('call-active');
         delete activeCalls[deptId];
         var badge = card.querySelector('.call-badge');
         if (badge) badge.remove();
+        // 終了ボタンを削除
+        var endBtn = card.querySelector('[data-action="end-meet"]');
+        if (endBtn) endBtn.remove();
       }
     }
 
@@ -817,6 +834,19 @@
       return;
 
       // ★ 都度生成は Phase3 で実装（現在は常設URL方式で運用）
+    }
+
+    function handleEndMeet(deptId) {
+      google.script.run
+        .withSuccessHandler(function() {
+          updateCardActiveState(deptId, false);
+          App.showToast('通話を終了しました', 'success');
+        })
+        .withFailureHandler(function(err) {
+          App.showToast('通話終了に失敗しました', 'error');
+          console.error('[handleEndMeet] エラー:', err);
+        })
+        .endMeetCall(deptId);
     }
 
     function closeMeetModal() {

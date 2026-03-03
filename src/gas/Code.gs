@@ -1782,10 +1782,26 @@ function startMeetCall(deptId) {
       startTime: new Date().toISOString()
     };
 
-    cache.put('active_meet_' + deptId, JSON.stringify(data), 3600); // 60分TTL
+    cache.put('active_meet_' + deptId, JSON.stringify(data), 300); // 5分TTL
     return { success: true };
   } catch (e) {
     console.error('startMeetCall エラー:', e);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Meet通話終了を記録（キャッシュから削除）
+ * @param {string} deptId - 部署ID
+ * @returns {Object} 結果
+ */
+function endMeetCall(deptId) {
+  try {
+    var cache = CacheService.getScriptCache();
+    cache.remove('active_meet_' + deptId);
+    return { success: true };
+  } catch (e) {
+    console.error('endMeetCall エラー:', e);
     return { success: false, error: e.message };
   }
 }
