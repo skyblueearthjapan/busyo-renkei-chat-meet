@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>部署クイック連絡</title>
+  <title>部署連携ビデオ電話</title>
   <style><?!= include('ui/styles.css'); ?></style>
 </head>
 <body>
@@ -18,7 +18,7 @@
 
   <!-- ヘッダー -->
   <header class="app-header">
-    <h1 class="app-title">部署クイック連絡</h1>
+    <h1 class="app-title">部署連携ビデオ電話</h1>
     <div id="user-info" class="user-info"></div>
   </header>
 
@@ -29,30 +29,6 @@
 
     <!-- ==================== HOME ==================== -->
     <section id="page-home" class="page">
-      <!-- 上部タブ（全部/最近/お気に入り 順） -->
-      <div class="home-tabs" style="display:flex; gap:8px; margin-bottom:16px;">
-        <button type="button" class="chip active" data-home-tab="all" onclick="Home.switchTab('all')">📋 全部</button>
-        <button type="button" class="chip" data-home-tab="recents" onclick="Home.switchTab('recents')">🕐 最近</button>
-        <button type="button" class="chip" data-home-tab="favorites" onclick="Home.switchTab('favorites')">⭐ お気に入り</button>
-      </div>
-
-      <!-- お気に入り/最近/推奨セクション -->
-      <div id="quick-section" style="margin-bottom:16px; display:none;">
-        <!-- 動的に表示 -->
-      </div>
-
-      <!-- 検索・フィルタ（全部タブ時のみ表示） -->
-      <div id="search-section" class="search-section">
-        <div class="search-box">
-          <span class="search-icon">🔍</span>
-          <input type="text" id="search-input" class="search-input" placeholder="部署名で検索...">
-        </div>
-        <div id="filter-chips" class="filter-chips">
-          <button class="chip active" data-site="">すべて</button>
-          <!-- 拠点チップはLookupから動的に生成 -->
-        </div>
-      </div>
-
       <!-- 部署カードリスト -->
       <div id="dept-list" class="dept-list">
         <!-- 動的に部署カードが挿入される -->
@@ -72,46 +48,14 @@
         <p style="font-size:0.8rem; color:#666;" id="settings-user-info">ログインユーザー: 読み込み中...</p>
       </div>
 
-      <!-- 2) 個人設定（全ユーザー） -->
-      <div class="settings-card" style="margin-bottom:16px;">
-        <h4 style="font-size:0.9rem; margin-bottom:12px;">⚙️ 個人設定</h4>
-
-        <div class="form-group">
-          <label class="form-label">ホーム初期タブ</label>
-          <select id="pref-default-tab" class="form-select">
-            <option value="all">全部</option>
-            <option value="recents">最近</option>
-            <option value="favorites">お気に入り</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">デフォルト拠点フィルタ</label>
-          <select id="pref-default-site" class="form-select">
-            <option value="">すべて</option>
-            <!-- 動的に拠点が追加される -->
-          </select>
-        </div>
-
-        <div style="display:flex; gap:8px; margin-top:12px;">
-          <button type="button" class="btn btn-primary" onclick="Settings.saveUserPrefs()">保存</button>
-          <button type="button" class="btn btn-secondary" onclick="Settings.resetFavorites()">お気に入りを初期化</button>
-        </div>
-      </div>
 
       <!-- 3) ヘルプ（全ユーザー） -->
       <div class="settings-card" style="margin-bottom:16px;">
         <h4 style="font-size:0.9rem; margin-bottom:8px;">❓ ヘルプ</h4>
         <details style="margin-bottom:8px;">
-          <summary style="cursor:pointer; font-size:0.85rem; color:#333;">Meet通知が届かない時</summary>
+          <summary style="cursor:pointer; font-size:0.85rem; color:#333;">Meetが開けない時</summary>
           <p style="font-size:0.8rem; color:#666; margin-top:4px; padding-left:12px;">
-            部署設定で「通知先ChatスペースID」が設定されているか確認してください。管理者に連絡してください。
-          </p>
-        </details>
-        <details style="margin-bottom:8px;">
-          <summary style="cursor:pointer; font-size:0.85rem; color:#333;">Chatが開けない時</summary>
-          <p style="font-size:0.8rem; color:#666; margin-top:4px; padding-left:12px;">
-            部署設定で「Chat URL」が設定されているか確認してください。
+            部署設定で「Meet URL」が設定されているか確認してください。管理者に連絡してください。
           </p>
         </details>
         <button type="button" class="btn btn-secondary" style="margin-top:8px;" onclick="Settings.runSimpleDiagnostics()">簡易診断を実行</button>
@@ -125,7 +69,7 @@
         <!-- 部署設定 -->
         <div class="settings-card" style="margin-bottom:16px;">
           <h4 style="font-size:0.9rem; margin-bottom:8px;">📋 部署設定</h4>
-          <p style="font-size:0.8rem; color:#666; margin-bottom:8px;">部署のChat/Meet設定を編集できます</p>
+          <p style="font-size:0.8rem; color:#666; margin-bottom:8px;">部署のMeet設定を編集できます</p>
           <button type="button" class="btn btn-secondary" onclick="Settings.showDeptList()">部署一覧を表示</button>
         </div>
 
@@ -199,7 +143,7 @@
         <div id="notify-fallback" class="notify-status-box" style="display:none; background:#FEF3C7; border:1px solid #FCD34D; border-radius:8px; padding:12px; margin:8px 0;">
           <p id="notify-fallback-message" style="color:#D97706; font-size:0.9rem; margin:0 0 8px 0;"></p>
           <p style="color:#78716C; font-size:0.8rem; margin:0;">
-            Chatで直接連絡するか、通知を再送してください。
+            通知を再送してください。
           </p>
         </div>
 
@@ -213,9 +157,6 @@
           <div style="display:flex; gap:8px; width:100%; margin-bottom:8px;">
             <button class="btn btn-warning" style="flex:1;" onclick="Home.retryNotification()">
               🔄 通知を再送
-            </button>
-            <button id="btn-open-chat" class="btn btn-secondary" style="flex:1;" onclick="Home.openChatFromModal()">
-              💬 Chatを開く
             </button>
           </div>
         </div>
@@ -266,20 +207,6 @@
 
         <hr style="margin:16px 0; border:none; border-top:1px solid #E5E7EB;">
 
-        <!-- Chat/通知 -->
-        <div class="form-group">
-          <label class="form-label">Chat URL</label>
-          <input type="url" id="m_chat_url" class="form-input" placeholder="https://chat.google.com/...">
-          <small style="color:#666;">Chatを開くためのリンクです（未設定でもOK）</small>
-        </div>
-        <div class="form-group">
-          <label class="form-label">通知先ChatスペースID</label>
-          <input type="text" id="m_notify" class="form-input" placeholder="spaces/AAAA...">
-          <small style="color:#666;">Meet開始時の通知を送る先のスペースIDです</small>
-        </div>
-
-        <hr style="margin:16px 0; border:none; border-top:1px solid #E5E7EB;">
-
         <!-- Meet -->
         <div class="form-group">
           <label class="form-label">Meet運用</label>
@@ -298,7 +225,6 @@
       <div style="background:#F0F9FF; padding:12px; border-radius:8px; margin-bottom:16px;">
         <p style="font-size:0.8rem; color:#0369A1; margin-bottom:8px;">💡 保存前にURLをテストできます</p>
         <div style="display:flex; gap:8px;">
-          <button type="button" class="btn btn-secondary btn-small" onclick="Settings.testChatUrl()">Chatを開く</button>
           <button type="button" class="btn btn-secondary btn-small" onclick="Settings.testMeetUrl()">Meetを開く</button>
         </div>
       </div>
@@ -449,7 +375,7 @@
       depts: [],
       lookup: {},
       user: null,
-      favorites: new Set(), // お気に入りをSetで管理
+
       rendered: new Set()   // 初回レンダリング済みページを追跡
     };
 
@@ -669,8 +595,7 @@
     function getLookup() { return state.lookup; }
     function setLookup(lookup) { state.lookup = lookup || {}; }
     function getUser() { return state.user; }
-    function getFavorites() { return state.favorites; }
-    function setFavorites(favSet) { state.favorites = favSet; }
+
 
     /**
      * Lookupデータをサーバーから再取得して更新
@@ -682,9 +607,9 @@
           if (result.success) {
             state.lookup = result.data;
             console.log('[reloadLookup] Lookup更新完了:', result.data);
-            // Home画面のフィルターチップを再描画
-            if (typeof Home !== 'undefined' && Home.renderSiteChips) {
-              Home.renderSiteChips();
+            // Home画面の部署リストを再描画
+            if (typeof Home !== 'undefined' && Home.renderDeptList) {
+              Home.renderDeptList();
             }
           }
           if (callback) callback(result);
@@ -768,8 +693,6 @@
       setLookup: setLookup,
       reloadLookup: reloadLookup,  // Lookup再取得
       getUser: getUser,
-      getFavorites: getFavorites,
-      setFavorites: setFavorites,
       getDeptById: getDeptById,
       populateDeptSelect: populateDeptSelect,
       populateLookupSelect: populateLookupSelect,
@@ -782,222 +705,41 @@
   // Home モジュール
   // ============================================
   var Home = (function() {
-    var filters = { site: '', search: '' };
     var currentMeetData = null;
-    var currentTab = 'all'; // デフォルトは「全部」
-    var homeData = { favorites: [], recents: [], recommended: [] };
 
     function init() {
-      loadHomeData();
       bindEvents();
-      renderSiteChips();
-    }
-
-    function loadHomeData() {
-      google.script.run
-        .withSuccessHandler(function(result) {
-          if (result.success) {
-            homeData = result.data;
-            // favoritesをSetに変換
-            App.setFavorites(new Set(homeData.favorites || []));
-          }
-          switchTab(currentTab);
-        })
-        .withFailureHandler(function(error) {
-          console.error('loadHomeData エラー:', error);
-          switchTab(currentTab);
-        })
-        .getHomeData();
-    }
-
-    function switchTab(tab) {
-      currentTab = tab;
-
-      // タブボタンのアクティブ状態を更新
-      document.querySelectorAll('.home-tabs .chip').forEach(function(t) {
-        t.classList.toggle('active', t.getAttribute('data-home-tab') === tab);
-      });
-
-      var searchSection = document.getElementById('search-section');
-      var quickSection = document.getElementById('quick-section');
-
-      if (tab === 'all') {
-        searchSection.style.display = 'block';
-        quickSection.style.display = 'none';
-        renderDeptList();
-      } else {
-        searchSection.style.display = 'none';
-        quickSection.style.display = 'block';
-        renderQuickSection(tab);
-      }
-    }
-
-    function renderQuickSection(tab) {
-      var container = document.getElementById('quick-section');
-      var listContainer = document.getElementById('dept-list');
-      if (!container || !listContainer) return;
-
-      var deptIds = [];
-      var emptyMessage = '';
-      var emptyIcon = '';
-
-      if (tab === 'favorites') {
-        deptIds = Array.from(App.getFavorites());
-        emptyMessage = 'お気に入りがありません。部署カードの★をタップして追加しましょう。';
-        emptyIcon = '⭐';
-      } else if (tab === 'recents') {
-        deptIds = homeData.recents || [];
-        emptyMessage = '最近使った部署がありません';
-        emptyIcon = '🕐';
-      }
-
-      // 推奨表示
-      var recommended = homeData.recommended || [];
-      if (recommended.length > 0 && tab === 'favorites') {
-        container.innerHTML = '<div style="margin-bottom:12px;">' +
-          '<span style="font-size:0.8rem; color:#6B7280;">📌 おすすめ</span>' +
-          '<div class="recents-chips" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">' +
-          recommended.slice(0, 4).map(function(deptId) {
-            var dept = App.getDeptById(deptId);
-            if (!dept) return '';
-            return '<button type="button" class="chip" data-action="meet" data-dept="' + App.escapeHtml(deptId) + '">' +
-              App.escapeHtml(dept.name) + '</button>';
-          }).join('') +
-          '</div></div>';
-      } else {
-        container.innerHTML = '';
-      }
-
-      if (deptIds.length === 0) {
-        listContainer.innerHTML = '<div class="empty-state">' +
-          '<div class="empty-icon">' + emptyIcon + '</div>' +
-          '<p class="empty-text">' + emptyMessage + '</p>' +
-          '</div>';
-        return;
-      }
-
-      var depts = deptIds.map(function(id) { return App.getDeptById(id); }).filter(Boolean);
-      listContainer.innerHTML = depts.map(function(dept) {
-        return renderDeptCard(dept);
-      }).join('');
+      renderDeptList();
     }
 
     function bindEvents() {
-      var searchInput = document.getElementById('search-input');
-      if (searchInput) {
-        searchInput.addEventListener('input', App.debounce(function() {
-          filters.search = this.value.toLowerCase();
-          renderDeptList();
-        }, 300));
-      }
-
-      // ★ イベント委譲：お気に入り☆ / Chat / Meet ボタン
+      // Meet ボタンクリック（イベント委譲）
       document.addEventListener('click', function(e) {
-        // お気に入り☆クリック
-        var starBtn = e.target.closest('[data-fav]');
-        if (starBtn) {
-          e.preventDefault();
-          e.stopPropagation();
-          var deptId = starBtn.getAttribute('data-fav');
-          console.log('[Click] ★ お気に入り:', deptId);
-          toggleFavorite(deptId, starBtn);
-          return;
-        }
-
-        // Chat/Meet ボタンクリック
         var actionBtn = e.target.closest('[data-action]');
         if (actionBtn) {
           var action = actionBtn.getAttribute('data-action');
           var deptId = actionBtn.getAttribute('data-dept');
-          console.log('[Click] アクションボタン:', action, deptId);
 
-          if (!deptId) {
-            console.warn('[Click] deptIdがありません');
-            return;
-          }
+          if (!deptId) return;
 
           try {
-            if (action === 'chat') {
-              handleChat(deptId);
-            } else if (action === 'meet') {
+            if (action === 'meet') {
               handleMeet(deptId);
             }
           } catch (err) {
-            console.error('[Click] ハンドラでエラー:', err);
             App.showToast('エラーが発生しました: ' + err.message, 'error');
           }
         }
       });
     }
 
-    function renderSiteChips() {
-      var container = document.getElementById('filter-chips');
-      if (!container) return;
-
-      // Lookupからサイト候補を取得（動的）
-      var lookup = App.getLookup();
-      var sites = lookup.Site || [];
-
-      // Lookupにない場合は部署データから抽出
-      if (sites.length === 0) {
-        var depts = App.getDepts();
-        depts.forEach(function(dept) {
-          if (dept.site && sites.indexOf(dept.site) < 0) {
-            sites.push(dept.site);
-          }
-        });
-      }
-
-      sites.forEach(function(site) {
-        var chip = document.createElement('button');
-        chip.className = 'chip';
-        chip.setAttribute('data-site', site);
-        chip.textContent = site;
-        chip.addEventListener('click', function() { selectSiteChip(this); });
-        container.appendChild(chip);
-      });
-
-      var allChip = container.querySelector('[data-site=""]');
-      if (allChip) {
-        allChip.addEventListener('click', function() { selectSiteChip(this); });
-      }
-    }
-
-    function selectSiteChip(chip) {
-      document.querySelectorAll('#filter-chips .chip').forEach(function(c) {
-        c.classList.remove('active');
-      });
-      chip.classList.add('active');
-      filters.site = chip.getAttribute('data-site');
-      renderDeptList();
-    }
-
     function renderDeptCard(dept) {
-      // ★ Phase0: ボタンは常に押せる（disabled禁止）
-      // 未設定時はクリックハンドラでトースト表示
-      var isFav = App.getFavorites().has(dept.dept_id);
-
-      // デバッグ用（問題発生時にコンソール確認）
-      // console.log('[renderDeptCard]', dept.dept_id, 'isFav:', isFav, 'favorites:', [...App.getFavorites()]);
-
-      // ★ data-fav 属性を使用（onclick禁止、イベント委譲で処理）
-      var starHtml = '<button type="button" class="fav-star' + (isFav ? ' active' : '') + '" ' +
-        'data-fav="' + App.escapeHtml(dept.dept_id) + '" ' +
-        'title="' + (isFav ? 'お気に入り解除' : 'お気に入り追加') + '" ' +
-        'style="position:absolute; top:8px; right:8px; background:none; border:none; font-size:1.2rem; cursor:pointer;">' +
-        (isFav ? '★' : '☆') + '</button>';
-
-      return '<div class="dept-card" data-dept-id="' + App.escapeHtml(dept.dept_id) + '" style="position:relative;">' +
-        starHtml +
+      return '<div class="dept-card" data-dept-id="' + App.escapeHtml(dept.dept_id) + '">' +
         '<div class="dept-info">' +
           '<div class="dept-name">' + App.escapeHtml(dept.name) + '</div>' +
           (dept.note ? '<div class="dept-description">' + App.escapeHtml(dept.note) + '</div>' : '') +
-          '<span class="dept-location">' + App.escapeHtml(dept.site || '') + '</span>' +
         '</div>' +
         '<div class="dept-actions">' +
-          '<button type="button" class="btn btn-chat" data-action="chat" data-dept="' + App.escapeHtml(dept.dept_id) + '">' +
-            '💬 Chat' +
-          '</button>' +
           '<button type="button" class="btn btn-meet" data-action="meet" data-dept="' + App.escapeHtml(dept.dept_id) + '">' +
             '📹 Meet' +
           '</button>' +
@@ -1010,152 +752,17 @@
       if (!container) return;
 
       var depts = App.getDepts();
-      var filteredDepts = depts.filter(function(dept) {
-        if (filters.site && dept.site !== filters.site) return false;
-        if (filters.search) {
-          var name = (dept.name || '').toLowerCase();
-          var note = (dept.note || '').toLowerCase();
-          if (name.indexOf(filters.search) < 0 && note.indexOf(filters.search) < 0) return false;
-        }
-        return true;
-      });
 
-      if (filteredDepts.length === 0) {
+      if (depts.length === 0) {
         container.innerHTML = '<div class="empty-state">' +
-          '<div class="empty-icon">🔍</div>' +
-          '<p class="empty-text">該当する部署がありません</p>' +
+          '<p class="empty-text">部署が登録されていません</p>' +
           '</div>';
         return;
       }
 
-      container.innerHTML = filteredDepts.map(function(dept) {
+      container.innerHTML = depts.map(function(dept) {
         return renderDeptCard(dept);
       }).join('');
-    }
-
-    function toggleFavorite(deptId, starBtn) {
-      var favSet = App.getFavorites();
-      var isFav = favSet.has(deptId);
-      var newState = !isFav;
-
-      console.log('[toggleFavorite]', deptId, 'isFav:', isFav, '→ newState:', newState);
-
-      // 即座にUI更新（楽観的更新）
-      if (newState) {
-        favSet.add(deptId);
-      } else {
-        favSet.delete(deptId);
-      }
-      App.setFavorites(favSet);
-
-      // ★ 押した☆ボタンだけをDOM更新（全体再描画しない）
-      if (starBtn) {
-        starBtn.classList.toggle('active', newState);
-        starBtn.innerHTML = newState ? '★' : '☆';
-        starBtn.title = newState ? 'お気に入り解除' : 'お気に入り追加';
-      }
-
-      // お気に入りタブの場合のみリスト更新（リストの増減があるため）
-      if (currentTab === 'favorites') {
-        renderQuickSection('favorites');
-      }
-
-      // サーバーに保存
-      google.script.run
-        .withSuccessHandler(function(result) {
-          if (result.success) {
-            App.showToast(newState ? 'お気に入りに追加しました' : 'お気に入りから削除しました', 'success');
-          } else {
-            // 失敗時はロールバック
-            rollbackFavorite(deptId, newState, starBtn);
-            App.showToast(result.error || '設定に失敗しました', 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          // 失敗時はロールバック
-          rollbackFavorite(deptId, newState, starBtn);
-          App.showToast('設定に失敗しました', 'error');
-          console.error(error);
-        })
-        .setFavorite(deptId, newState);
-    }
-
-    function rollbackFavorite(deptId, wasNewState, starBtn) {
-      var favSet = App.getFavorites();
-      if (wasNewState) {
-        favSet.delete(deptId);
-      } else {
-        favSet.add(deptId);
-      }
-      App.setFavorites(favSet);
-
-      // UIをロールバック
-      if (starBtn) {
-        var restoredState = !wasNewState;
-        starBtn.classList.toggle('active', restoredState);
-        starBtn.innerHTML = restoredState ? '★' : '☆';
-        starBtn.title = restoredState ? 'お気に入り解除' : 'お気に入り追加';
-      }
-
-      if (currentTab === 'favorites') {
-        renderQuickSection('favorites');
-      }
-    }
-
-    function handleChat(deptId) {
-      console.log('[handleChat] deptId:', deptId);
-      var dept = App.getDeptById(deptId);
-      console.log('[handleChat] dept:', dept);
-      if (!dept) {
-        App.showToast('部署が見つかりません', 'error');
-        return;
-      }
-
-      // ★ リンク方式：chat_url があれば直接開く（API不要）
-      console.log('[handleChat] chat_url:', dept.chat_url);
-      if (dept.chat_url) {
-        console.log('[handleChat] Opening chat URL:', dept.chat_url);
-        window.open(dept.chat_url, '_blank');
-        App.showToast(dept.name + ' のChatを開きます', 'success');
-        // ログ記録
-        google.script.run.logEvent({
-          type: 'OpenChat',
-          action: 'Chat',
-          to_dept_id: deptId,
-          note: 'リンク方式'
-        });
-        return;
-      }
-
-      // chat_url がない場合はAPI経由（chat_space_id から URL生成）
-      if (dept.chat_space_id) {
-        App.showLoading('Chatを開いています...');
-        google.script.run
-          .withSuccessHandler(function(result) {
-            App.hideLoading();
-            if (result.success) {
-              App.showToast(dept.name + ' のChatを開きます', 'success');
-              window.open(result.chatUrl, '_blank');
-            } else {
-              App.showToast(result.error || 'Chatを開けませんでした', 'error');
-            }
-          })
-          .withFailureHandler(function(error) {
-            App.hideLoading();
-            App.showToast('エラーが発生しました', 'error');
-            console.error(error);
-          })
-          .openChat(deptId);
-        return;
-      }
-
-      // どちらもない場合 - 設定画面への案内
-      var user = App.getUser();
-      if (user && user.isAdmin) {
-        App.showToast('Chatリンクが未設定です。設定→部署設定から登録してください。', 'info');
-      } else {
-        App.showToast('Chatリンクが未設定です。管理者に連絡してください。', 'error');
-      }
     }
 
     function handleMeet(deptId) {
@@ -1246,23 +853,6 @@
         .retryNotify(currentMeetData.eventId);
     }
 
-    function openChatFromModal() {
-      if (!currentMeetData || !currentMeetData.targetDept) {
-        App.showToast('部署情報がありません', 'error');
-        return;
-      }
-      var dept = currentMeetData.targetDept;
-      var chatUrl = dept.chat_url || '';
-      if (!chatUrl && dept.chat_space_id) {
-        chatUrl = 'https://chat.google.com/room/' + dept.chat_space_id.replace('spaces/', '');
-      }
-      if (!chatUrl) {
-        App.showToast('この部署のChatは設定されていません', 'error');
-        return;
-      }
-      window.open(chatUrl, '_blank');
-      App.showToast(dept.name + ' のChatを開きます', 'success');
-    }
 
     function fallbackCopyTextToClipboard(text) {
       var textArea = document.createElement('textarea');
@@ -1283,16 +873,11 @@
 
     return {
       init: init,
-      switchTab: switchTab,
-      toggleFavorite: toggleFavorite,
-      handleChat: handleChat,
       handleMeet: handleMeet,
       closeMeetModal: closeMeetModal,
       copyMeetLink: copyMeetLink,
       retryNotification: retryNotification,
-      openChatFromModal: openChatFromModal,
-      renderDeptList: renderDeptList,  // 部署リスト再描画（外部から呼び出し用）
-      renderSiteChips: renderSiteChips  // 拠点フィルターチップ再描画（外部から呼び出し用）
+      renderDeptList: renderDeptList
     };
   })();
 
@@ -1363,24 +948,6 @@
         console.warn('[populateSettings] userInfo要素またはdata.userがありません');
       }
 
-      // 個人設定
-      var prefs = data.userPrefs || {};
-      var tabSelect = document.getElementById('pref-default-tab');
-      var siteSelect = document.getElementById('pref-default-site');
-
-      if (tabSelect) tabSelect.value = prefs.defaultTopTab || 'all';
-
-      // 拠点選択肢を動的追加
-      if (siteSelect && data.lookup && data.lookup.Site) {
-        siteSelect.innerHTML = '<option value="">すべて</option>';
-        data.lookup.Site.forEach(function(site) {
-          var opt = document.createElement('option');
-          opt.value = site;
-          opt.textContent = site;
-          if (prefs.defaultSite === site) opt.selected = true;
-          siteSelect.appendChild(opt);
-        });
-      }
     }
 
     function checkAdmin() {
@@ -1397,52 +964,6 @@
       }
     }
 
-    // ====== 個人設定 ======
-    function saveUserPrefs() {
-      var patch = {
-        defaultTopTab: document.getElementById('pref-default-tab').value,
-        defaultSite: document.getElementById('pref-default-site').value
-      };
-
-      App.showLoading('保存しています...');
-      google.script.run
-        .withSuccessHandler(function(result) {
-          App.hideLoading();
-          if (result && result.ok) {
-            App.showToast('個人設定を保存しました', 'success');
-          } else {
-            App.showToast(result.error || '保存に失敗しました', 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          App.hideLoading();
-          App.showToast('保存に失敗しました', 'error');
-          console.error(error);
-        })
-        .saveUserPrefs(patch);
-    }
-
-    function resetFavorites() {
-      if (!confirm('お気に入りを初期化しますか？')) return;
-
-      App.showLoading('初期化しています...');
-      google.script.run
-        .withSuccessHandler(function(result) {
-          App.hideLoading();
-          if (result && result.ok) {
-            App.showToast('お気に入りを初期化しました', 'success');
-          } else {
-            App.showToast(result.error || '初期化に失敗しました', 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          App.hideLoading();
-          App.showToast('初期化に失敗しました', 'error');
-          console.error(error);
-        })
-        .resetUserFavorites();
-    }
-
     // ====== 簡易診断（全ユーザー） ======
     function runSimpleDiagnostics() {
       App.showLoading('診断しています...');
@@ -1455,7 +976,6 @@
             var html = '<div style="background:#F3F4F6;border-radius:8px;padding:12px;">';
             html += '<p style="font-size:0.85rem;margin-bottom:4px;">' + (d.spreadsheet ? '✅' : '❌') + ' スプレッドシート</p>';
             html += '<p style="font-size:0.85rem;margin-bottom:4px;">' + (d.meet ? '✅' : '❌') + ' Meet API</p>';
-            html += '<p style="font-size:0.85rem;margin-bottom:0;">' + (d.chat ? '✅' : '❌') + ' Chat API</p>';
             html += '</div>';
             resultDiv.innerHTML = html;
           } else {
@@ -1503,7 +1023,6 @@
               '<div style="background:#F3F4F6;border-radius:8px;padding:12px;margin-top:8px;">' +
               '<p>' + (data.spreadsheet.ok ? '✅' : '❌') + ' スプレッドシート: ' + data.spreadsheet.message + '</p>' +
               '<p>' + (data.meet.ok ? '✅' : '❌') + ' Meet API: ' + data.meet.message + '</p>' +
-              '<p>' + (data.chat.ok ? '✅' : '❌') + ' Chat API: ' + data.chat.message + '</p>' +
               '</div>';
           } else {
             resultDiv.innerHTML = '<p style="color:#dc3545;">❌ 診断に失敗しました</p>';
@@ -1630,8 +1149,6 @@
       document.getElementById('m_name').value = '';
       document.getElementById('m_order').value = 999;
       document.getElementById('m_enabled').checked = true;
-      document.getElementById('m_chat_url').value = '';
-      document.getElementById('m_notify').value = '';
       document.getElementById('m_meet_mode').value = '常設URL';
       document.getElementById('m_meet_url').value = '';
 
@@ -1724,8 +1241,6 @@
       document.getElementById('m_name').value = dept.name || '';
       document.getElementById('m_order').value = dept.order || 999;
       document.getElementById('m_enabled').checked = (dept.enabled !== 'N');
-      document.getElementById('m_chat_url').value = dept.chat_url || '';
-      document.getElementById('m_notify').value = dept.notify_space_id || '';
       document.getElementById('m_meet_mode').value = dept.meet_mode || '都度生成';
       document.getElementById('m_meet_url').value = dept.meet_url || '';
 
@@ -1771,8 +1286,6 @@
         site: document.getElementById('m_site').value,
         order: parseInt(document.getElementById('m_order').value, 10) || 999,
         enabled: document.getElementById('m_enabled').checked ? 'Y' : 'N',
-        chat_url: document.getElementById('m_chat_url').value.trim(),
-        notify_space_id: document.getElementById('m_notify').value.trim(),
         meet_mode: document.getElementById('m_meet_mode').value,
         meet_url: document.getElementById('m_meet_url').value.trim()
       };
@@ -1781,10 +1294,6 @@
       // バリデーション
       if (!patch.name) {
         App.showToast('部署表示名を入力してください', 'error');
-        return;
-      }
-      if (patch.chat_url && !patch.chat_url.startsWith('https://')) {
-        App.showToast('Chat URLはhttps://で始めてください', 'error');
         return;
       }
       if (patch.meet_mode === '常設URL' && patch.meet_url && !patch.meet_url.includes('meet.google.com')) {
@@ -1830,24 +1339,6 @@
           .withFailureHandler(onFailure)
           .updateDeptSettings(editingDeptId, patch);
       }
-    }
-
-    /**
-     * テスト: 入力中のChat URLを開く（保存前確認用）
-     */
-    function testChatUrl() {
-      var url = document.getElementById('m_chat_url').value.trim();
-      console.log('[testChatUrl] url:', url);
-      if (!url) {
-        App.showToast('Chat URLが入力されていません', 'error');
-        return;
-      }
-      if (!url.startsWith('https://')) {
-        App.showToast('URLはhttps://で始めてください', 'error');
-        return;
-      }
-      window.open(url, '_blank');
-      App.showToast('Chat URLを開きました', 'success');
     }
 
     /**
@@ -2052,9 +1543,6 @@
     return {
       init: init,
       checkAdmin: checkAdmin,
-      // 個人設定
-      saveUserPrefs: saveUserPrefs,
-      resetFavorites: resetFavorites,
       // 診断
       runSimpleDiagnostics: runSimpleDiagnostics,
       runDiagnostics: runDiagnostics,
@@ -2072,7 +1560,6 @@
       toggleMeetUrlField: toggleMeetUrlField,
       saveDeptSettings: saveDeptSettings,
       // テスト（保存前URL確認）
-      testChatUrl: testChatUrl,
       testMeetUrl: testMeetUrl,
       // 拠点設定
       showSiteList: showSiteList,
