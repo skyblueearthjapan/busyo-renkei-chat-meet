@@ -26,9 +26,10 @@ function doGet(e) {
   template.bootstrapJson = JSON.stringify(bootstrap);
   template.initialParams = JSON.stringify(params);
   template.currentPage = page;
+  template.PORTAL_URL = 'https://script.google.com/a/macros/lineworks-local.info/s/AKfycbx2eyJMOYP9o--GPBuhY-pj071IIR6Kqb_0xALwwNzdLQZux0dIAlL3P9EoCucnzXA/exec';
 
   return template.evaluate()
-    .setTitle('部署クイック連絡')
+    .setTitle('部署連携ビデオ電話')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
